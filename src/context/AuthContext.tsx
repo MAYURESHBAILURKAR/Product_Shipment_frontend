@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const storedUser = await AsyncStorage.getItem("user");
       if (storedUser) {
         setUser(JSON.parse(storedUser));
-        console.log(storedUser);
+        // console.log(storedUser);
       }
     } catch (e) {
       console.error("Failed to load user", e);
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      console.log("logout");
+      // console.log("logout");
 
       // 1. Clear Storage
       await AsyncStorage.removeItem("user");

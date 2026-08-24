@@ -101,7 +101,11 @@ export default function ProductionDashboard() {
           {/* 1. Modern Header */}
           <XStack justifyContent="space-between" alignItems="center">
             <XStack gap="$3" alignItems="center">
-              <Avatar circular size="$5">
+              <Avatar
+                circular
+                size="$5"
+                onPress={() => router.push("/profile")}
+              >
                 <Avatar.Image
                   src={`https://ui-avatars.com/api/?name=${user?.name}&background=2F80ED&color=fff`}
                 />

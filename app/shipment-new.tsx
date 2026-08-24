@@ -130,7 +130,7 @@ export default function NewShipmentScreen() {
           const product = products.find((p) => p._id === id);
           const qty = cart[id];
           const itemValue = qty * (user?.priceAllotted || 0);
-          return `• ${product?.name || "Unknown"}: ${qty} pcs (₹${itemValue})`;
+          return `• ${product?.brand || "Unknown"} - ${product?.name || "Unknown"}: ${qty} pcs (₹${itemValue})`;
         })
         .join("\n");
 

@@ -26,7 +26,7 @@ function RootNavigation() {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("RootNavigation", user);
+    // console.log("RootNavigation", user);
 
     if (isLoading) return;
 
