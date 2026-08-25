@@ -1,9 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Linking, Image as RNImage } from "react-native";
+import * as Sharing from "expo-sharing";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, FlatList, Modal, Image as RNImage } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ViewShot from "react-native-view-shot";
 import {
   Button,
   Card,
@@ -18,6 +21,8 @@ import { useAuth } from "../src/context/AuthContext";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+// Currently unused now that sharing goes through Copy Details + Share Image,
+// kept in case you want to add a direct WhatsApp deep-link back in later.
 const ADMIN_PHONE = process.env.EXPO_PUBLIC_ADMIN_PHONE;
 
 // Nexus Colors
@@ -43,6 +48,12 @@ export default function NewShipmentScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+
+  // Preview / share modal state
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const viewShotRef = useRef<ViewShot>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -78,11 +89,8 @@ export default function NewShipmentScreen() {
       const qtyA = cart[a._id] || 0;
       const qtyB = cart[b._id] || 0;
 
-      // If A is selected and B is not, A goes first (-1)
       if (qtyA > 0 && qtyB === 0) return -1;
-      // If B is selected and A is not, B goes first (1)
       if (qtyA === 0 && qtyB > 0) return 1;
-      // Otherwise keep original order
       return 0;
     });
   }, [products, searchQuery, showSelectedOnly, cart]);
@@ -107,34 +115,31 @@ export default function NewShipmentScreen() {
   const estimatedPayout = totalItems * (user?.priceAllotted || 0);
   const progressPercent = Math.min((totalItems / 5000) * 100, 100);
 
-  const handleSubmit = async () => {
-    if (totalItems === 0) {
-      Alert.alert("Error", "Please add at least one item.");
-      return;
-    }
-    setSubmitting(true);
-    const itemsPayload = Object.keys(cart).map((productId) => ({
-      productId,
-      quantity: cart[productId],
-    }));
+  // Derived list of selected products with resolved product data
+  const cartItems = useMemo(() => {
+    return Object.keys(cart)
+      .filter((id) => cart[id] > 0)
+      .map((id) => {
+        const product = products.find((p) => p._id === id);
+        const qty = cart[id];
+        return {
+          product,
+          qty,
+          value: qty * (user?.priceAllotted || 0),
+        };
+      })
+      .filter((entry) => entry.product); // drop any orphaned cart entries
+  }, [cart, products, user?.priceAllotted]);
 
-    try {
-      await axios.post(
-        `${API_URL}/shipments`,
-        { items: itemsPayload },
-        { headers: { Authorization: `Bearer ${user?.token}` } },
-      );
+  // Original plain-text shipment summary (used for the text-based WhatsApp share)
+  const buildTextMessage = () => {
+    const itemsList = cartItems
+      .map(({ product, qty, value }) => {
+        return `• ${product?.brand || "Unknown"} - ${product?.name || "Unknown"}: ${qty} pcs (₹${value})`;
+      })
+      .join("\n");
 
-      const itemsList = Object.keys(cart)
-        .map((id) => {
-          const product = products.find((p) => p._id === id);
-          const qty = cart[id];
-          const itemValue = qty * (user?.priceAllotted || 0);
-          return `• ${product?.brand || "Unknown"} - ${product?.name || "Unknown"}: ${qty} pcs (₹${itemValue})`;
-        })
-        .join("\n");
-
-      const message = `📦 *New Shipment Sent!*
+    return `📦 *New Shipment Sent!*
 
 👤 *Owner:* ${user?.name}
 📊 *Total Items:* ${totalItems}
@@ -144,31 +149,88 @@ export default function NewShipmentScreen() {
 ${itemsList}
 
 Please approve this in the Admin App.`;
-      Alert.alert("Shipment Recorded!", "Notify Admin via WhatsApp?", [
-        { text: "No", onPress: () => router.back(), style: "cancel" },
-        {
-          text: "Notify via WhatsApp",
-          onPress: () => {
-            const url = `whatsapp://send?phone=${ADMIN_PHONE}&text=${encodeURIComponent(message)}`;
-            Linking.canOpenURL(url).then((supported) => {
-              if (supported) Linking.openURL(url);
-              else
-                Linking.openURL(
-                  `sms:${ADMIN_PHONE}?body=${encodeURIComponent(message)}`,
-                );
-            });
-            router.back();
-          },
-        },
-      ]);
+  };
+
+  const handleSubmit = async () => {
+    if (totalItems === 0) {
+      Alert.alert("Error", "Please add at least one item.");
+      return;
+    }
+    setSubmitting(true);
+
+    const itemsPayload = cartItems.map(({ product, qty }) => ({
+      productId: product._id,
+      quantity: qty,
+    }));
+
+    try {
+      await axios.post(
+        `${API_URL}/shipments`,
+        { items: itemsPayload },
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
+
+      setSubmitting(false);
+      // Instead of a plain text alert, open the visual receipt/preview
+      setPreviewVisible(true);
     } catch (error: any) {
+      setSubmitting(false);
       Alert.alert(
         "Error",
         error.response?.data?.message || "Failed to send shipment",
       );
-    } finally {
-      setSubmitting(false);
     }
+  };
+
+  // Generic share: sends just the rendered image via the native share sheet,
+  // letting the user pick any app/contact themselves.
+  const handleShareImage = async () => {
+    try {
+      setSharing(true);
+
+      const uri = await viewShotRef.current?.capture?.();
+      if (!uri) throw new Error("Could not capture shipment image");
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert("Sharing not available", "This device can't share files.");
+        return;
+      }
+
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share shipment image",
+        UTI: "public.png",
+      });
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to generate or share the shipment image.");
+    } finally {
+      setSharing(false);
+      setPreviewVisible(false);
+      router.back();
+    }
+  };
+
+  // Copies the original text-format shipment summary to the clipboard.
+  // The idea: copy this first, then hit "Share Image" and paste the text as
+  // the caption wherever you send the photo (WhatsApp, etc). Avoids the
+  // whatsapp:// deep link limitation of only carrying text, no image.
+  const handleCopyDetails = async () => {
+    try {
+      const message = buildTextMessage();
+      await Clipboard.setStringAsync(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to copy shipment details.");
+    }
+  };
+
+  const handleSkipShare = () => {
+    setPreviewVisible(false);
+    router.back();
   };
 
   const renderProduct = ({ item }: any) => {
@@ -328,7 +390,6 @@ Please approve this in the Admin App.`;
             />
           </XStack>
 
-          {/* ✅ FIXED ICON ALIGNMENT */}
           <Button
             backgroundColor={showSelectedOnly ? Colors.primary : Colors.card}
             borderColor={showSelectedOnly ? Colors.primary : Colors.cardBorder}
@@ -340,7 +401,6 @@ Please approve this in the Admin App.`;
             padding="$0"
             justifyContent="center"
             alignItems="center"
-            // Using the icon prop ensures it's perfectly centered
             icon={
               <Feather
                 name="shopping-cart"
@@ -451,6 +511,133 @@ Please approve this in the Admin App.`;
           </Button>
         </YStack>
       </YStack>
+
+      {/* Preview + Share Modal (rendered after submit succeeds) */}
+      <Modal visible={previewVisible} animationType="slide" transparent>
+        <YStack
+          flex={1}
+          backgroundColor="rgba(0,0,0,0.85)"
+          justifyContent="center"
+          alignItems="center"
+          padding="$4"
+        >
+          <ViewShot
+            ref={viewShotRef}
+            options={{ format: "png", quality: 0.92 }}
+            style={{ backgroundColor: Colors.background }}
+          >
+            <YStack
+              width={340}
+              backgroundColor={Colors.background}
+              padding="$4"
+              borderRadius="$4"
+            >
+              <H3 color="white" marginBottom="$1">
+                📦 New Shipment
+              </H3>
+              <Text color={Colors.textGray} fontSize={12} marginBottom="$3">
+                Owner: {user?.name}
+              </Text>
+
+              {cartItems.map(({ product, qty, value }) => (
+                <XStack
+                  key={product._id}
+                  alignItems="center"
+                  gap="$3"
+                  marginBottom="$3"
+                  backgroundColor={Colors.card}
+                  borderRadius="$3"
+                  padding="$2"
+                >
+                  <RNImage
+                    source={{
+                      uri: product.photoUrl || "https://placehold.co/100",
+                    }}
+                    style={{ width: 50, height: 50, borderRadius: 6 }}
+                  />
+                  <YStack flex={1}>
+                    <Text color="white" fontSize={13} fontWeight="bold">
+                      {product.brand} - {product.name}
+                    </Text>
+                    <Text color={Colors.textGray} fontSize={11}>
+                      {qty} pcs · ₹{value}
+                    </Text>
+                  </YStack>
+                </XStack>
+              ))}
+
+              <XStack
+                justifyContent="space-between"
+                marginTop="$2"
+                paddingTop="$3"
+                borderTopColor={Colors.cardBorder}
+                borderTopWidth={1}
+              >
+                <Text color={Colors.textGray}>Total: {totalItems} pcs</Text>
+                <Text color={Colors.accent} fontWeight="bold">
+                  ₹ {estimatedPayout.toFixed(2)}
+                </Text>
+              </XStack>
+            </YStack>
+          </ViewShot>
+
+          <YStack gap="$2" marginTop="$4" width={340}>
+            <Button
+              backgroundColor={copied ? Colors.success : Colors.card}
+              borderColor={Colors.cardBorder}
+              borderWidth={1}
+              height={46}
+              borderRadius="$4"
+              onPress={handleCopyDetails}
+              icon={
+                <Feather
+                  name={copied ? "check" : "copy"}
+                  size={18}
+                  color="white"
+                />
+              }
+            >
+              <Text color="white" fontWeight="bold">
+                {copied ? "Copied!" : "Copy Details"}
+              </Text>
+            </Button>
+
+            <Button
+              backgroundColor={Colors.primary}
+              height={46}
+              borderRadius="$4"
+              onPress={handleShareImage}
+              disabled={sharing}
+              icon={
+                !sharing ? (
+                  <Feather name="image" size={18} color="white" />
+                ) : undefined
+              }
+            >
+              {sharing ? (
+                <Spinner color="white" />
+              ) : (
+                <Text color="white" fontWeight="bold">
+                  Share Image
+                </Text>
+              )}
+            </Button>
+
+            <Text
+              color={Colors.textGray}
+              fontSize={11}
+              textAlign="center"
+              marginTop="$1"
+            >
+              Tip: Copy Details first, then Share Image and paste as caption
+            </Text>
+
+            <Button chromeless height={40} onPress={handleSkipShare}>
+              <Text color={Colors.textGray}>Skip</Text>
+            </Button>
+          </YStack>
+        </YStack>
+      </Modal>
     </SafeAreaView>
   );
 }
