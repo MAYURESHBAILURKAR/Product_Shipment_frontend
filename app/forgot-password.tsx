@@ -5,27 +5,25 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { Button, H3, Input, Spinner, Text, XStack, YStack } from "tamagui";
+import {
+  GlassCard,
+  PressableScale,
+  PrimaryButton,
+  StaggerItem,
+} from "../src/components/ui";
+import { palette, radius, spacing } from "../src/theme/tokens";
+import { Input } from "tamagui";
 
 // ⚠️ Ensure this matches your .env or fallback
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://192.168.29.48:8080/api";
-
-// Nexus Colors
-const Colors = {
-  background: "#0B0E14",
-  card: "#151A23",
-  inputBg: "#1C222E",
-  border: "#232936",
-  primary: "#2F80ED",
-  text: "#FFFFFF",
-  textGray: "#9CA3AF",
-};
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -33,6 +31,7 @@ export default function ForgotPasswordScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // --- Reset logic preserved exactly ---
   const handleReset = async () => {
     if (!email || !newPassword) {
       Alert.alert("Error", "Please fill in all fields");
@@ -59,125 +58,131 @@ export default function ForgotPasswordScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: Colors.background }}
+      style={{ flex: 1, backgroundColor: palette.background }}
     >
       <LinearGradient
-        colors={[Colors.background, "#111620", "#0f1219"]}
-        style={{ flex: 1, justifyContent: "center", padding: 20 }}
+        colors={[palette.background, "#0C1220", "#0A0E16"]}
+        style={styles.gradient}
       >
-        <YStack gap="$6" maxWidth={400} width="100%" alignSelf="center">
+        <View style={styles.center}>
           {/* Header */}
-          <YStack alignItems="center" marginBottom="$4">
+          <StaggerItem style={styles.header}>
             <Logo size={60} showText={false} />
-            <H3 color="white" marginTop="$4">
-              Reset Password
-            </H3>
-            <Text color={Colors.textGray} textAlign="center" fontSize={14}>
+            <Text style={styles.heading}>Reset Password</Text>
+            <Text style={styles.subheading}>
               Enter your email and new password.
             </Text>
-          </YStack>
+          </StaggerItem>
 
           {/* Form Card */}
-          <YStack
-            backgroundColor={Colors.card}
-            borderColor={Colors.border}
-            borderWidth={1}
-            borderRadius="$6"
-            padding="$5"
-            gap="$4"
-          >
-            {/* Email Input */}
-            <YStack gap="$2">
-              <Text
-                color={Colors.textGray}
-                fontSize={11}
-                fontWeight="bold"
-                letterSpacing={1}
-              >
-                EMAIL ADDRESS
-              </Text>
-              <XStack
-                backgroundColor={Colors.inputBg}
-                borderColor={Colors.border}
-                borderWidth={1}
-                borderRadius="$4"
-                alignItems="center"
-                paddingHorizontal="$3"
-                height={50}
-              >
-                <Feather name="mail" size={18} color={Colors.textGray} />
-                <Input
-                  flex={1}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="admin@nexus-supply.com"
-                  placeholderTextColor="$gray9"
-                  backgroundColor="transparent"
-                  borderWidth={0}
-                  color="white"
-                  autoCapitalize="none"
-                />
-              </XStack>
-            </YStack>
+          <StaggerItem index={1}>
+            <GlassCard padding={24}>
+              {/* Email Input */}
+              <View style={styles.field}>
+                <Text style={styles.label}>EMAIL ADDRESS</Text>
+                <View style={styles.inputWrap}>
+                  <Feather name="mail" size={17} color={palette.textTertiary} />
+                  <Input
+                    flex={1}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="admin@nexus-supply.com"
+                    placeholderTextColor="$gray9"
+                    backgroundColor="transparent"
+                    borderWidth={0}
+                    color={palette.text}
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
 
-            {/* New Password Input */}
-            <YStack gap="$2">
-              <Text
-                color={Colors.textGray}
-                fontSize={11}
-                fontWeight="bold"
-                letterSpacing={1}
-              >
-                NEW PASSWORD
-              </Text>
-              <XStack
-                backgroundColor={Colors.inputBg}
-                borderColor={Colors.border}
-                borderWidth={1}
-                borderRadius="$4"
-                alignItems="center"
-                paddingHorizontal="$3"
-                height={50}
-              >
-                <Feather name="lock" size={18} color={Colors.textGray} />
-                <Input
-                  flex={1}
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  secureTextEntry
-                  placeholder="••••••••••••"
-                  placeholderTextColor="$gray9"
-                  backgroundColor="transparent"
-                  borderWidth={0}
-                  color="white"
-                />
-              </XStack>
-            </YStack>
+              {/* New Password Input */}
+              <View style={styles.field}>
+                <Text style={styles.label}>NEW PASSWORD</Text>
+                <View style={styles.inputWrap}>
+                  <Feather name="lock" size={17} color={palette.textTertiary} />
+                  <Input
+                    flex={1}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry
+                    placeholder="••••••••••••"
+                    placeholderTextColor="$gray9"
+                    backgroundColor="transparent"
+                    borderWidth={0}
+                    color={palette.text}
+                  />
+                </View>
+              </View>
 
-            {/* Submit Button */}
-            <Button
-              backgroundColor={Colors.primary}
-              height={50}
-              borderRadius="$4"
-              onPress={handleReset}
-              disabled={loading}
-              marginTop="$2"
-              icon={loading ? <Spinner color="white" /> : undefined}
-            >
-              <Text color="white" fontWeight="bold" fontSize={16}>
-                Reset Password
-              </Text>
-            </Button>
-          </YStack>
+              {/* Submit */}
+              <PrimaryButton
+                label="Reset Password"
+                loading={loading}
+                size="lg"
+                onPress={handleReset}
+              />
+            </GlassCard>
+          </StaggerItem>
 
           {/* Back to Login */}
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text color={Colors.textGray} textAlign="center" fontSize={14}>
-              <Feather name="arrow-left" /> Back to Login
-            </Text>
-          </TouchableOpacity>
-        </YStack>
+          <StaggerItem index={2} style={styles.backWrap}>
+            <PressableScale hapticFeedback onPress={() => router.back()}>
+              <View style={styles.backRow}>
+                <Feather name="arrow-left" size={16} color={palette.textSecondary} />
+                <Text style={styles.back}>Back to Login</Text>
+              </View>
+            </PressableScale>
+          </StaggerItem>
+        </View>
       </LinearGradient>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  gradient: { flex: 1, justifyContent: "center", padding: 20 },
+  center: { maxWidth: 400, width: "100%", alignSelf: "center" },
+  header: {
+    alignItems: "center",
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  heading: {
+    color: palette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    marginTop: spacing.md,
+  },
+  subheading: {
+    color: palette.textSecondary,
+    textAlign: "center",
+    fontSize: 14,
+  },
+  field: { marginBottom: spacing.lg, gap: 8 },
+  label: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  inputWrap: {
+    backgroundColor: palette.surfaceHighest,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    height: 50,
+    gap: spacing.sm,
+  },
+  backWrap: { alignItems: "center", marginTop: spacing.xl },
+  backRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  back: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+});

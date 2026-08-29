@@ -2,7 +2,7 @@ import { AppVersionDisplay } from "@/components/AppVersionDisplay";
 import { Logo } from "@/components/Logo";
 import ServerAwakeScreen from "@/ServerAwakeScreen";
 import { useFonts } from "expo-font";
-import { Stack, useRouter, useSegments } from "expo-router"; // <--- IMPORT useSegments
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -15,8 +15,8 @@ import {
   YStack,
 } from "tamagui";
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
-import { ThemeProvider } from "../src/context/ThemeContext";
 import config from "../tamagui.config";
+import { palette } from "../src/theme/tokens";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,14 +51,14 @@ function RootNavigation() {
         flex={1}
         justifyContent="center"
         alignItems="center"
-        backgroundColor="#0B0E14" // Match your theme background
+        backgroundColor={palette.background}
         gap="$4"
       >
         {/* Big Logo */}
         <Logo size={120} showText={true} />
 
         {/* Loading Indicator */}
-        <Spinner size="large" color="#2F80ED" />
+        <Spinner size="large" color={palette.primary} />
 
         {/* Version at bottom */}
         <YStack position="absolute" bottom={40}>
@@ -69,9 +69,28 @@ function RootNavigation() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "slide_from_right",
+        contentStyle: { backgroundColor: palette.background },
+      }}
+    >
+      <Stack.Screen name="index" options={{ animation: "fade_from_bottom" }} />
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false, animation: "fade_from_bottom" }}
+      />
+      <Stack.Screen name="login" options={{ animation: "fade" }} />
+      <Stack.Screen name="forgot-password" options={{ animation: "fade" }} />
+      <Stack.Screen
+        name="shipment-tracker"
+        options={{ animation: "slide_from_bottom" }}
+      />
+      <Stack.Screen
+        name="shipment-new"
+        options={{ animation: "slide_from_bottom" }}
+      />
     </Stack>
   );
 }
@@ -94,26 +113,24 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <TamaguiProvider config={config} defaultTheme="dark">
-          <PortalProvider shouldAddRootHost>
-            <Theme name="dark">
-              <SafeAreaProvider>
-                <StatusBar style="light" />
+      <TamaguiProvider config={config} defaultTheme="dark">
+        <PortalProvider shouldAddRootHost>
+          <Theme name="dark">
+            <SafeAreaProvider>
+              <StatusBar style="light" />
 
-                {/* ✅ LOGIC: Show Awake Screen First */}
-                {!isServerReady ? (
-                  <ServerAwakeScreen
-                    onServerReady={() => setServerReady(true)}
-                  />
-                ) : (
-                  <RootNavigation />
-                )}
-              </SafeAreaProvider>
-            </Theme>
-          </PortalProvider>
-        </TamaguiProvider>
-      </ThemeProvider>
+              {/* ✅ LOGIC: Show Awake Screen First */}
+              {!isServerReady ? (
+                <ServerAwakeScreen
+                  onServerReady={() => setServerReady(true)}
+                />
+              ) : (
+                <RootNavigation />
+              )}
+            </SafeAreaProvider>
+          </Theme>
+        </PortalProvider>
+      </TamaguiProvider>
     </AuthProvider>
   );
 }

@@ -2,19 +2,22 @@ import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { FlatList, Image as RNImage } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  Button,
-  Card,
-  H2,
-  H3,
-  Input,
-  Spinner,
+  FlatList,
+  Image as RNImage,
+  StyleSheet,
   Text,
-  XStack,
-  YStack,
-} from "tamagui";
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Input } from "tamagui";
+import {
+  EmptyState,
+  ScreenHeader,
+  SkeletonListRow,
+  StaggerItem,
+} from "../src/components/ui";
+import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 
 // ⚠️ REPLACE WITH YOUR IP
@@ -27,6 +30,7 @@ export default function AdminProductsScreen() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
+  // --- Fetch logic preserved exactly ---
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -47,103 +51,152 @@ export default function AdminProductsScreen() {
     }, []),
   );
 
-  // Filter products by search
+  // --- Filter preserved exactly ---
   const filteredProducts = products.filter(
     (p: any) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.user?.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const renderProduct = ({ item }: any) => (
-    <Card
-      borderColor="$borderColor"
-      borderWidth={1}
-      padding="$0"
-      marginBottom="$3"
-      backgroundColor="#1a1a2e"
-      overflow="hidden"
-    >
-      <XStack>
+  const renderProduct = ({ item, index }: any) => (
+    <StaggerItem index={index} travelY={10}>
+      <View style={styles.card}>
         <RNImage
           source={{ uri: item.photoUrl || "https://via.placeholder.com/100" }}
           style={{ width: 100, height: "100%" }}
         />
-        <YStack padding="$3" flex={1}>
-          <H3 fontSize={16} color="white">
-            {item.name}
-          </H3>
-          <Text color="$gray10" fontSize={12} marginBottom="$2">
-            {item.brand}
-          </Text>
+        <View style={styles.cardBody}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <Text style={styles.productBrand}>{item.brand}</Text>
 
-          {/* Owner Details */}
-          <XStack
-            backgroundColor="rgba(255,255,255,0.05)"
-            padding="$2"
-            borderRadius="$4"
-            marginBottom="$2"
-          >
-            <Feather
-              name="user"
-              size={14}
-              color="#4CC9F0"
-              style={{ marginRight: 6 }}
-            />
-            <Text color="#4CC9F0" fontSize={12} fontWeight="bold">
-              {item.user?.name}
-              <Text color="$gray10" fontWeight="normal">
+          {/* Owner */}
+          <View style={styles.ownerRow}>
+            <Feather name="user" size={13} color={palette.accent} />
+            <Text style={styles.ownerText}>
+              <Text style={styles.ownerName}>{item.user?.name}</Text>
+              <Text style={styles.ownerLocality}>
                 {" "}
                 ({item.user?.locality || "No Locality"})
               </Text>
             </Text>
-          </XStack>
+          </View>
 
-          <XStack alignItems="center" gap="$2">
-            <Feather name="box" size={14} color="#FF6B6B" />
-            <Text color="#FF6B6B" fontWeight="bold">
+          {/* Stock */}
+          <View style={styles.stockRow}>
+            <Feather name="box" size={13} color={palette.warning} />
+            <Text style={styles.stockText}>
               {item.currentStock} in stock
             </Text>
-          </XStack>
-        </YStack>
-      </XStack>
-    </Card>
+          </View>
+        </View>
+      </View>
+    </StaggerItem>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0f0c29" }}>
-      <YStack padding="$4" flex={1}>
-        <XStack alignItems="center" gap="$3" marginBottom="$4">
-          <Button
-            chromeless
-            icon={<Feather name="arrow-left" size={24} />}
-            onPress={() => router.back()}
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+      <View style={styles.flex}>
+        <View style={styles.headerPad}>
+          <ScreenHeader
+            title="Global Inventory"
+            subtitle="ALL PRODUCTS ACROSS USERS"
+            onBack={() => router.back()}
           />
-          <H2 color="white">Global Inventory</H2>
-        </XStack>
+        </View>
 
-        {/* Search Bar */}
-        <Input
-          flex={1}
-          placeholder="Search by Product or User..."
-          value={search}
-          onChangeText={setSearch}
-          backgroundColor="transparent"
-          borderWidth={0}
-          color="white"
-          placeholderTextColor="$gray9"
-        />
+        {/* Search */}
+        <View style={styles.searchWrap}>
+          <Feather name="search" size={16} color={palette.textTertiary} />
+          <Input
+            flex={1}
+            placeholder="Search by Product or User..."
+            value={search}
+            onChangeText={setSearch}
+            backgroundColor="transparent"
+            borderWidth={0}
+            color={palette.text}
+            placeholderTextColor="$gray9"
+          />
+        </View>
 
         {loading ? (
-          <Spinner size="large" color="#FF6B6B" />
+          <View style={styles.skeletonWrap}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonListRow key={i} />
+            ))}
+          </View>
         ) : (
           <FlatList
             data={filteredProducts}
             keyExtractor={(item: any) => item._id}
             renderItem={renderProduct}
-            contentContainerStyle={{ paddingBottom: 50 }}
+            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 50 }}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              !loading ? (
+                <EmptyState
+                  icon="package"
+                  title="No products found"
+                  message={
+                    search
+                      ? "No products match your search."
+                      : "Products created by production users will appear here."
+                  }
+                />
+              ) : null
+            }
           />
         )}
-      </YStack>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  headerPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 44,
+  },
+  skeletonWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  card: {
+    flexDirection: "row",
+    borderColor: palette.border,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+    backgroundColor: palette.surfaceElevated,
+    overflow: "hidden",
+    borderRadius: radius.lg,
+  },
+  cardBody: { padding: spacing.md, flex: 1, gap: 6 },
+  productName: {
+    color: palette.text,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  productBrand: { color: palette.textSecondary, fontSize: 12, marginBottom: 2 },
+  ownerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(76, 201, 240, 0.08)",
+    padding: 8,
+    borderRadius: radius.sm,
+  },
+  ownerText: { fontSize: 12, flex: 1 },
+  ownerName: { color: palette.accent, fontWeight: "700" },
+  ownerLocality: { color: palette.textSecondary, fontWeight: "400" },
+  stockRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stockText: { color: palette.warning, fontWeight: "700", fontSize: 12 },
+});

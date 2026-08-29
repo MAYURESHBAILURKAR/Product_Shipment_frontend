@@ -2,20 +2,25 @@ import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Image as RNImage, ScrollView } from "react-native";
+import {
+  Alert,
+  Image as RNImage,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  Button,
-  Card,
-  H3,
-  Separator,
-  Spinner,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
+  GlassCard,
+  PressableScale,
+  ScreenHeader,
+  SectionHeader,
+  StaggerItem,
+  StatusBadge,
+} from "../../src/components/ui";
+import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
-import { useTheme } from "../../src/context/ThemeContext";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -24,7 +29,6 @@ export default function ShipmentDetailsScreen() {
   const { id } = useLocalSearchParams(); // Get the ID from the route
   const router = useRouter();
   const { user } = useAuth();
-  const { Colors } = useTheme();
 
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -35,9 +39,9 @@ export default function ShipmentDetailsScreen() {
     }
   }, [id]);
 
+  // --- Fetch logic preserved exactly ---
   const fetchShipmentDetails = async () => {
     try {
-      // ✅ CHANGED: Direct API call for a single shipment
       const { data } = await axios.get(`${API_URL}/shipments/${id}`, {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
@@ -52,297 +56,320 @@ export default function ShipmentDetailsScreen() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "received":
-        return Colors.success;
-      case "rejected":
-        return Colors.danger;
-      default:
-        return "#FFBB33";
-    }
-  };
-
   if (loading) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={Colors.background}
-      >
-        <Spinner size="large" color={Colors.primary} />
-      </YStack>
+      <View style={styles.loader}>
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+          scrollEnabled={false}
+        >
+          <View style={styles.skeletonCard} />
+          <View style={[styles.skeletonCard, { height: 80 }]} />
+          <View style={[styles.skeletonCard, { height: 60 }]} />
+          <View style={[styles.skeletonCard, { height: 60 }]} />
+        </ScrollView>
+      </View>
     );
   }
 
   if (!shipment) return null;
 
   const isPending = shipment.status === "pending";
-  const statusColor = getStatusColor(shipment.status);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* 1. Header */}
-        <XStack
-          paddingHorizontal="$4"
-          paddingTop="$2"
-          justifyContent="space-between"
-          alignItems="center"
-          marginBottom="$4"
-        >
-          <XStack gap="$2" alignItems="center">
-            <Button
-              icon={<Feather name="arrow-left" size={24} color="white" />}
-              chromeless
-              onPress={() => router.back()}
-              padding="$0"
-            />
-            <H3 color="white" fontWeight="bold">
-              Details
-            </H3>
-          </XStack>
+        <View style={styles.headerPad}>
+          <ScreenHeader
+            title="Details"
+            onBack={() => router.back()}
+            right={
+              isPending ? (
+                <PressableEditBtn
+                  onPress={() =>
+                    router.push({
+                      pathname: "/shipment-edit",
+                      params: { shipmentId: id },
+                    })
+                  }
+                />
+              ) : undefined
+            }
+          />
+        </View>
 
-          {/* Edit Button (Only if Pending) */}
-          {isPending && (
-            <Button
-              size="$3"
-              backgroundColor={Colors.card}
-              borderColor={Colors.primary}
-              borderWidth={1}
-              icon={<Feather name="edit-2" size={16} color={Colors.primary} />}
-              onPress={() =>
-                router.push({
-                  pathname: "/shipment-edit",
-                  params: { shipmentId: id },
-                })
-              }
-            >
-              <Text color={Colors.primary} fontWeight="bold">
-                Edit
-              </Text>
-            </Button>
-          )}
-        </XStack>
-
-        <YStack paddingHorizontal="$4" gap="$4">
+        <View style={styles.wrap}>
           {/* 2. Status Card */}
-          <Card
-            backgroundColor={Colors.card}
-            padding="$4"
-            borderRadius="$4"
-            borderColor={Colors.cardBorder}
-            borderWidth={1}
-          >
-            <XStack
-              justifyContent="space-between"
-              alignItems="flex-start"
-              marginBottom="$2"
-            >
-              <YStack>
-                <Text color={Colors.textGray} fontSize={10} letterSpacing={1}>
-                  SHIPMENT ID
-                </Text>
-                <Text color="white" fontSize={14} fontWeight="bold">
-                  #{typeof id === "string" ? id.slice(-6).toUpperCase() : "---"}
-                </Text>
-              </YStack>
-              <YStack
-                backgroundColor={`${statusColor}20`}
-                paddingHorizontal="$3"
-                paddingVertical="$1"
-                borderRadius="$4"
-                borderColor={`${statusColor}50`}
-                borderWidth={1}
-              >
-                <Text
-                  color={statusColor}
-                  fontSize={11}
-                  fontWeight="bold"
-                  textTransform="uppercase"
-                >
-                  {shipment.status}
-                </Text>
-              </YStack>
-            </XStack>
-
-            <XStack gap="$4" marginTop="$2">
-              <XStack gap="$2" alignItems="center">
-                <Feather name="calendar" size={14} color={Colors.textGray} />
-                <Text color={Colors.textGray} fontSize={12}>
-                  {new Date(shipment.shippedAt).toDateString()}
-                </Text>
-              </XStack>
-              <XStack gap="$2" alignItems="center">
-                <Feather name="user" size={14} color={Colors.textGray} />
-                <Text color={Colors.textGray} fontSize={12}>
-                  {shipment.sender?.name || user?.name}
-                </Text>
-              </XStack>
-            </XStack>
-          </Card>
+          <StaggerItem index={0}>
+            <GlassCard padding={20}>
+              <View style={styles.statusTop}>
+                <View>
+                  <Text style={styles.idLabel}>SHIPMENT ID</Text>
+                  <Text style={styles.idValue}>
+                    #{typeof id === "string" ? id.slice(-6).toUpperCase() : "---"}
+                  </Text>
+                </View>
+                <StatusBadge status={shipment.status} />
+              </View>
+              <View style={styles.metaRow}>
+                <View style={styles.metaItem}>
+                  <Feather name="calendar" size={13} color={palette.textTertiary} />
+                  <Text style={styles.metaText}>
+                    {new Date(shipment.shippedAt).toDateString()}
+                  </Text>
+                </View>
+                <View style={styles.metaItem}>
+                  <Feather name="user" size={13} color={palette.textTertiary} />
+                  <Text style={styles.metaText}>
+                    {shipment.sender?.name || user?.name}
+                  </Text>
+                </View>
+              </View>
+            </GlassCard>
+          </StaggerItem>
 
           {/* 3. Financial Stats */}
-          <XStack gap="$3">
-            <Card
-              flex={1}
-              backgroundColor={Colors.card}
-              padding="$3"
-              borderRadius="$4"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
-              <Text color={Colors.textGray} fontSize={10}>
-                TOTAL QTY
+          <StaggerItem index={1} style={styles.statRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>TOTAL QTY</Text>
+              <Text style={styles.statValue}>{shipment.totalQuantity}</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>PAYOUT</Text>
+              <Text style={[styles.statValue, { color: palette.accent }]}>
+                ₹ {shipment.totalAmount}
               </Text>
-              <H3 color="white">{shipment.totalQuantity}</H3>
-            </Card>
-            <Card
-              flex={1}
-              backgroundColor={Colors.card}
-              padding="$3"
-              borderRadius="$4"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
-              <Text color={Colors.textGray} fontSize={10}>
-                PAYOUT
-              </Text>
-              <H3 color={Colors.accent}>₹ {shipment.totalAmount}</H3>
-            </Card>
-          </XStack>
-
-          <Separator borderColor={Colors.cardBorder} />
+            </View>
+          </StaggerItem>
 
           {/* 4. Items List */}
-          <YStack gap="$3">
-            <Text
-              color={Colors.textGray}
-              fontSize={12}
-              fontWeight="bold"
-              letterSpacing={1}
-            >
-              SHIPMENT CONTENTS
-            </Text>
+          <StaggerItem index={2}>
+            <SectionHeader label="Shipment Contents" />
+            <View style={styles.itemsCol}>
+              {shipment.items.map((item: any, index: number) => {
+                const productName = item.product?.name || "Unknown Item";
+                const productBrand = item.product?.brand || "N/A";
+                const productImg =
+                  item.product?.photoUrl || "https://placehold.co/100";
 
-            {shipment.items.map((item: any, index: number) => {
-              // Handle case where product might be populated or just an ID
-              const productName = item.product?.name || "Unknown Item";
-              const productBrand = item.product?.brand || "N/A";
-              const productImg =
-                item.product?.photoUrl || "https://placehold.co/100";
-
-              return (
-                <Card
-                  key={index}
-                  backgroundColor={Colors.card}
-                  padding="$3"
-                  borderRadius="$4"
-                  borderColor={Colors.cardBorder}
-                  borderWidth={1}
-                >
-                  <XStack gap="$3" alignItems="center">
-                    {/* Product Image */}
-                    <YStack
-                      width={50}
-                      height={50}
-                      borderRadius="$2"
-                      overflow="hidden"
-                      backgroundColor="black"
-                    >
+                return (
+                  <View key={index} style={styles.itemCard}>
+                    <View style={styles.itemImageWrap}>
                       <RNImage
                         source={{ uri: productImg }}
                         style={{ width: "100%", height: "100%" }}
                       />
-                    </YStack>
-
-                    <YStack flex={1}>
-                      <Text color="white" fontWeight="bold">
-                        {productName}
-                      </Text>
-                      <Text color={Colors.textGray} fontSize={11}>
-                        Brand: {productBrand}
-                      </Text>
-                    </YStack>
-
-                    <YStack alignItems="flex-end">
-                      <Text color="white" fontWeight="bold" fontSize={16}>
-                        {item.quantity}
-                      </Text>
-                      <Text color={Colors.textGray} fontSize={10}>
-                        units
-                      </Text>
-                    </YStack>
-                  </XStack>
-                </Card>
-              );
-            })}
-          </YStack>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName}>{productName}</Text>
+                      <Text style={styles.itemBrand}>Brand: {productBrand}</Text>
+                    </View>
+                    <View style={styles.itemQty}>
+                      <Text style={styles.itemQtyValue}>{item.quantity}</Text>
+                      <Text style={styles.itemQtyLabel}>units</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </StaggerItem>
 
           {/* 5. Payment Status Footer */}
-          <Card
-            backgroundColor={
-              shipment.paymentStatus === "paid"
-                ? "rgba(0, 200, 81, 0.1)"
-                : Colors.card
-            }
-            padding="$3"
-            borderRadius="$4"
-            marginTop="$2"
-            borderColor={
-              shipment.paymentStatus === "paid"
-                ? Colors.success
-                : Colors.cardBorder
-            }
-            borderWidth={1}
-          >
-            <XStack justifyContent="space-between" alignItems="center">
-              <XStack gap="$3" alignItems="center">
-                <YStack
-                  width={30}
-                  height={30}
-                  borderRadius="$10"
-                  backgroundColor={
+          <StaggerItem index={3}>
+            <View
+              style={[
+                styles.paymentCard,
+                shipment.paymentStatus === "paid" && styles.paymentPaid,
+              ]}
+            >
+              <View style={styles.paymentLeft}>
+                <View
+                  style={[
+                    styles.paymentIcon,
                     shipment.paymentStatus === "paid"
-                      ? Colors.success
-                      : Colors.textGray
-                  }
-                  justifyContent="center"
-                  alignItems="center"
+                      ? styles.paymentIconPaid
+                      : styles.paymentIconPending,
+                  ]}
                 >
                   <Feather
                     name={shipment.paymentStatus === "paid" ? "check" : "clock"}
-                    size={16}
-                    color="white"
+                    size={15}
+                    color="#FFFFFF"
                   />
-                </YStack>
-                <YStack>
-                  <Text color="white" fontWeight="bold">
-                    Payment Status
-                  </Text>
-                  <Text color={Colors.textGray} fontSize={11}>
+                </View>
+                <View>
+                  <Text style={styles.paymentTitle}>Payment Status</Text>
+                  <Text style={styles.paymentSub}>
                     {shipment.paymentStatus === "paid"
                       ? "Funds have been transferred."
                       : "Waiting for admin approval."}
                   </Text>
-                </YStack>
-              </XStack>
+                </View>
+              </View>
               <Text
-                color={
+                style={[
+                  styles.paymentState,
                   shipment.paymentStatus === "paid"
-                    ? Colors.success
-                    : Colors.textGray
-                }
-                fontWeight="bold"
-                textTransform="uppercase"
+                    ? { color: palette.success }
+                    : { color: palette.textSecondary },
+                ]}
               >
                 {shipment.paymentStatus}
               </Text>
-            </XStack>
-          </Card>
-        </YStack>
+            </View>
+          </StaggerItem>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// Small ghost edit button for the header slot.
+function PressableEditBtn({ onPress }: { onPress: () => void }) {
+  return (
+    <PressableScale hapticFeedback onPress={onPress} style={editStyles.btn}>
+      <Feather name="edit-2" size={15} color={palette.primaryBright} />
+      <Text style={editStyles.label}>Edit</Text>
+    </PressableScale>
+  );
+}
+
+const editStyles = StyleSheet.create({
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: `${palette.primary}33`,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+  },
+  label: { color: palette.primaryBright, fontWeight: "700", fontSize: 13 },
+});
+
+const styles = StyleSheet.create({
+  loader: { flex: 1, backgroundColor: palette.background },
+  headerPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  wrap: { paddingHorizontal: spacing.lg, gap: spacing.lg, marginTop: spacing.sm },
+  statusTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: spacing.md,
+  },
+  idLabel: {
+    color: palette.textTertiary,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  idValue: {
+    color: palette.text,
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 3,
+    letterSpacing: 0.5,
+  },
+  metaRow: {
+    flexDirection: "row",
+    gap: spacing.xl,
+    marginTop: spacing.xs,
+  },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaText: { color: palette.textSecondary, fontSize: 12 },
+  statRow: { flexDirection: "row", gap: spacing.md },
+  statCard: {
+    flex: 1,
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  statLabel: {
+    color: palette.textTertiary,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  statValue: {
+    color: palette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 4,
+    letterSpacing: -0.3,
+  },
+  itemsCol: { gap: spacing.sm },
+  itemCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  itemImageWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    backgroundColor: palette.surface,
+  },
+  itemName: { color: palette.text, fontWeight: "700", fontSize: 14 },
+  itemBrand: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  itemQty: { alignItems: "flex-end" },
+  itemQtyValue: { color: palette.text, fontWeight: "700", fontSize: 16 },
+  itemQtyLabel: {
+    color: palette.textTertiary,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  paymentCard: {
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  paymentPaid: {
+    backgroundColor: "rgba(34, 197, 94, 0.08)",
+    borderColor: palette.success,
+  },
+  paymentLeft: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
+    flex: 1,
+  },
+  paymentIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentIconPaid: { backgroundColor: palette.success },
+  paymentIconPending: { backgroundColor: palette.textTertiary },
+  paymentTitle: { color: palette.text, fontWeight: "700", fontSize: 14 },
+  paymentSub: { color: palette.textSecondary, fontSize: 11, marginTop: 2 },
+  paymentState: {
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  skeletonCard: {
+    height: 120,
+    borderRadius: radius.lg,
+    backgroundColor: palette.surfaceElevated,
+  },
+});

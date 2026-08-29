@@ -1,39 +1,33 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Print from "expo-print";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import React, { useCallback, useState } from "react";
-import { Alert, Dimensions, FlatList } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import {
+  Alert,
+  Dimensions,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { BarChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Avatar } from "tamagui";
 import {
-  Avatar,
-  Button,
-  Card,
-  H3,
-  Spinner,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
+  EmptyState,
+  PressableScale,
+  ScreenHeader,
+  SectionHeader,
+  StaggerItem,
+} from "../src/components/ui";
+import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 
 // ⚠️ REPLACE IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 const SCREEN_WIDTH = Dimensions.get("window").width;
-
-// Nexus Colors
-const Colors = {
-  background: "#0B0E14",
-  card: "#151A23",
-  cardBorder: "#232936",
-  primary: "#2F80ED",
-  textGray: "#9CA3AF",
-  success: "#00C851",
-  accent: "#4CC9F0",
-};
 
 export default function AdminReportsScreen() {
   const { user } = useAuth();
@@ -42,6 +36,7 @@ export default function AdminReportsScreen() {
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState("monthly");
 
+  // --- Fetch logic preserved exactly ---
   const fetchReports = async () => {
     try {
       setLoading(true);
@@ -63,7 +58,7 @@ export default function AdminReportsScreen() {
     }, [period]),
   );
 
-  // --- PDF GENERATION LOGIC (Kept same, just functional) ---
+  // --- PDF GENERATION LOGIC (preserved exactly) ---
   const generatePDF = async () => {
     if (reportData.length === 0) {
       Alert.alert("No Data", "Nothing to export.");
@@ -122,209 +117,272 @@ export default function AdminReportsScreen() {
     }
   };
 
-  // --- CHART DATA PREP ---
-  const chartLabels = reportData.map((item: any) => item.name.split(" ")[0]); // First name only
+  // --- Chart data prep preserved exactly ---
+  const chartLabels = reportData.map((item: any) => item.name.split(" ")[0]);
   const chartValues = reportData.map((item: any) => item.totalAmount);
   const chartData = {
     labels: chartLabels.length > 0 ? chartLabels : ["No Data"],
     datasets: [{ data: chartValues.length > 0 ? chartValues : [0] }],
   };
 
+  const totalEarnings = useMemo(
+    () =>
+      reportData.reduce(
+        (acc: number, item: any) => acc + item.totalAmount,
+        0,
+      ),
+    [reportData],
+  );
+
   const renderRow = ({ item, index }: any) => (
-    <Card
-      backgroundColor={Colors.card}
-      borderColor={Colors.cardBorder}
-      borderWidth={1}
-      borderRadius="$4"
-      padding="$3"
-      marginBottom="$3"
-    >
-      <XStack alignItems="center" justifyContent="space-between">
-        <XStack gap="$3" alignItems="center">
-          <Text
-            color={Colors.textGray}
-            fontWeight="bold"
-            fontSize={12}
-            width={20}
-          >
-            #{index + 1}
-          </Text>
+    <StaggerItem index={index} travelY={10}>
+      <View style={styles.rowCard}>
+        <View style={styles.rowLeft}>
+          <Text style={styles.rank}>#{index + 1}</Text>
           <Avatar circular size="$3">
             <Avatar.Image
               src={`https://ui-avatars.com/api/?name=${item.name}&background=random`}
             />
-            <Avatar.Fallback backgroundColor={Colors.primary} />
+            <Avatar.Fallback backgroundColor={palette.primary} />
           </Avatar>
-          <YStack>
-            <Text color="white" fontWeight="bold" fontSize={14}>
-              {item.name}
-            </Text>
-            <Text color={Colors.textGray} fontSize={11}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowName}>{item.name}</Text>
+            <Text style={styles.rowMeta}>
               {item.count} Shipments • {item.totalQuantity} Items
             </Text>
-          </YStack>
-        </XStack>
+          </View>
+        </View>
 
-        <YStack alignItems="flex-end">
-          <Text color={Colors.accent} fontWeight="bold" fontSize={14}>
-            ₹ {item.totalAmount}
-          </Text>
-          <Text color={Colors.success} fontSize={10} fontWeight="600">
-            PAID
-          </Text>
-        </YStack>
-      </XStack>
-    </Card>
+        <View style={styles.rowRight}>
+          <Text style={styles.rowAmount}>₹ {item.totalAmount}</Text>
+          <Text style={styles.rowPaid}>PAID</Text>
+        </View>
+      </View>
+    </StaggerItem>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
       <FlatList
         contentContainerStyle={{ paddingBottom: 50 }}
         ListHeaderComponent={
-          <YStack padding="$4" gap="$5">
+          <View style={styles.headerWrap}>
             {/* Header */}
-            <XStack justifyContent="space-between" alignItems="center">
-              <XStack alignItems="center" gap="$3">
-                <Button
-                  chromeless
-                  icon={<Feather name="arrow-left" size={24} color="white" />}
-                  onPress={() => router.back()}
-                  padding="$0"
-                />
-                <YStack>
-                  <Text color={Colors.textGray} fontSize={10} letterSpacing={1}>
-                    ANALYTICS
-                  </Text>
-                  <H3 color="white" fontWeight="bold">
-                    Performance
-                  </H3>
-                </YStack>
-              </XStack>
-              <Button
-                size="$3"
-                backgroundColor={Colors.card}
-                borderColor={Colors.cardBorder}
-                borderWidth={1}
-                icon={<Feather name="download" color={Colors.primary} />}
-                onPress={generatePDF}
-              >
-                <Text color={Colors.primary} fontWeight="bold">
-                  Export PDF
-                </Text>
-              </Button>
-            </XStack>
-
-            {/* Filter Tabs */}
-            <XStack
-              backgroundColor={Colors.card}
-              padding="$1"
-              borderRadius="$10"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
-              {["weekly", "monthly", "yearly"].map((p) => (
-                <Button
-                  key={p}
-                  flex={1}
-                  size="$3"
-                  chromeless
-                  borderRadius="$8"
-                  backgroundColor={
-                    period === p ? Colors.primary : "transparent"
-                  }
-                  onPress={() => setPeriod(p)}
+            <ScreenHeader
+              title="Performance"
+              subtitle="ANALYTICS"
+              onBack={() => router.back()}
+              right={
+                <PressableScale
+                  hapticFeedback
+                  onPress={generatePDF}
+                  style={styles.exportBtn}
                 >
-                  <Text
-                    color={period === p ? "white" : Colors.textGray}
-                    fontWeight="600"
-                    textTransform="capitalize"
+                  <Feather name="download" size={14} color={palette.primaryBright} />
+                  <Text style={styles.exportText}>Export PDF</Text>
+                </PressableScale>
+              }
+            />
+
+            {/* Period Filter */}
+            <StaggerItem index={1}>
+              <View style={styles.segmentWrap}>
+                {["weekly", "monthly", "yearly"].map((p) => (
+                  <PressableScale
+                    key={p}
+                    hapticFeedback
+                    onPress={() => setPeriod(p)}
+                    style={[
+                      styles.segment,
+                      period === p && styles.segmentActive,
+                    ]}
                   >
-                    {p}
-                  </Text>
-                </Button>
-              ))}
-            </XStack>
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        period === p && styles.segmentTextActive,
+                      ]}
+                    >
+                      {p}
+                    </Text>
+                  </PressableScale>
+                ))}
+              </View>
+            </StaggerItem>
 
-            {/* Gradient Chart Card */}
-            <LinearGradient
-              colors={[Colors.card, "#1A2332"]}
-              style={{
-                borderRadius: 16,
-                padding: 16,
-                borderWidth: 1,
-                borderColor: Colors.cardBorder,
-              }}
-            >
-              <XStack justifyContent="space-between" marginBottom="$4">
-                <H3 color="white" fontSize={16}>
-                  Earnings Distribution
-                </H3>
-                <Feather name="bar-chart-2" color={Colors.accent} size={20} />
-              </XStack>
+            {/* Chart Card */}
+            <StaggerItem index={2}>
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Earnings Distribution</Text>
+                  <Feather name="bar-chart-2" color={palette.accent} size={19} />
+                </View>
 
-              {loading ? (
-                <YStack
-                  height={220}
-                  justifyContent="center"
-                  alignItems="center"
-                >
-                  <Spinner size="large" color={Colors.primary} />
-                </YStack>
-              ) : (
-                <BarChart
-                  data={chartData}
-                  width={SCREEN_WIDTH - 64} // Padding compensation
-                  height={220}
-                  yAxisLabel="₹"
-                  yAxisSuffix=""
-                  chartConfig={{
-                    backgroundColor: "transparent",
-                    backgroundGradientFrom: "transparent",
-                    backgroundGradientTo: "transparent",
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(47, 128, 237, ${opacity})`, // Primary Blue
-                    labelColor: (opacity = 1) =>
-                      `rgba(156, 163, 175, ${opacity})`, // Gray
-                    barPercentage: 0.7,
-                    propsForBackgroundLines: {
-                      strokeDasharray: "",
-                      stroke: Colors.cardBorder,
-                    }, // Subtle lines
-                  }}
-                  verticalLabelRotation={0}
-                  showBarTops={false}
-                  fromZero
-                  flatColor={true}
-                  withInnerLines={true}
-                />
-              )}
-            </LinearGradient>
+                {loading ? (
+                  <View style={styles.chartLoader}>
+                    <View style={styles.chartSkeleton} />
+                  </View>
+                ) : (
+                  <BarChart
+                    data={chartData}
+                    width={SCREEN_WIDTH - 64}
+                    height={220}
+                    yAxisLabel="₹"
+                    yAxisSuffix=""
+                    chartConfig={{
+                      backgroundColor: "transparent",
+                      backgroundGradientFrom: "transparent",
+                      backgroundGradientTo: "transparent",
+                      decimalPlaces: 0,
+                      color: (opacity = 1) => `rgba(90, 164, 245, ${opacity})`,
+                      labelColor: (opacity = 1) =>
+                        `rgba(139, 148, 167, ${opacity})`,
+                      barPercentage: 0.7,
+                      propsForBackgroundLines: {
+                        strokeDasharray: "",
+                        stroke: palette.border,
+                      },
+                    }}
+                    verticalLabelRotation={0}
+                    showBarTops={false}
+                    fromZero
+                    flatColor={true}
+                    withInnerLines={true}
+                  />
+                )}
+                <Text style={styles.totalLine}>
+                  Total: ₹{totalEarnings.toLocaleString()}
+                </Text>
+              </View>
+            </StaggerItem>
 
             {/* List Header */}
-            <XStack
-              justifyContent="space-between"
-              alignItems="center"
-              marginTop="$2"
-            >
-              <Text color={Colors.textGray} fontSize={12} letterSpacing={1}>
-                TOP PERFORMERS
-              </Text>
-              {/* <Feather name="filter" size={16} color={Colors.textGray} /> */}
-            </XStack>
-          </YStack>
+            <StaggerItem index={3}>
+              <SectionHeader label="Top Performers" />
+            </StaggerItem>
+          </View>
         }
         data={reportData}
         keyExtractor={(item: any) => item.name}
         renderItem={renderRow}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           !loading ? (
-            <Text color={Colors.textGray} textAlign="center" marginTop="$10">
-              No data found for this period.
-            </Text>
-          ) : null // <--- Returns null instead of false
+            <EmptyState
+              icon="bar-chart-2"
+              title="No data found"
+              message="There's no performance data for this period yet."
+            />
+          ) : null
         }
       />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  headerWrap: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  exportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: `${palette.primary}33`,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+  },
+  exportText: { color: palette.primaryBright, fontWeight: "700", fontSize: 13 },
+  segmentWrap: {
+    flexDirection: "row",
+    backgroundColor: palette.surfaceElevated,
+    padding: 4,
+    borderRadius: radius.pill,
+    borderColor: palette.border,
+    borderWidth: 1,
+    gap: 4,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    alignItems: "center",
+  },
+  segmentActive: { backgroundColor: palette.primary },
+  segmentText: {
+    color: palette.textSecondary,
+    fontWeight: "600",
+    fontSize: 13,
+    textTransform: "capitalize",
+  },
+  segmentTextActive: { color: "#FFFFFF" },
+  chartCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  chartHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  chartTitle: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  chartLoader: {
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  chartSkeleton: {
+    width: "90%",
+    height: 200,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceHighest,
+  },
+  totalLine: {
+    color: palette.textSecondary,
+    fontSize: 12,
+    textAlign: "right",
+    marginTop: spacing.sm,
+  },
+  rowCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    flex: 1,
+  },
+  rank: {
+    color: palette.textTertiary,
+    fontWeight: "700",
+    fontSize: 12,
+    width: 22,
+  },
+  rowName: { color: palette.text, fontWeight: "700", fontSize: 14 },
+  rowMeta: { color: palette.textSecondary, fontSize: 11, marginTop: 2 },
+  rowRight: { alignItems: "flex-end" },
+  rowAmount: { color: palette.accent, fontWeight: "700", fontSize: 14 },
+  rowPaid: { color: palette.success, fontSize: 10, fontWeight: "700", marginTop: 2 },
+});

@@ -1,48 +1,46 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient"; // Install this
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, Dimensions, FlatList, TouchableOpacity } from "react-native";
-import { LineChart } from "react-native-chart-kit"; // Install this
+import {
+  Alert,
+  Dimensions,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Avatar,
-  Button,
-  Card,
-  H2,
-  H3,
   Input,
   ScrollView,
   Sheet,
-  Spinner,
-  Text,
-  XStack,
+  Text as TText,
   YStack,
 } from "tamagui";
+import {
+  EmptyState,
+  GradientCard,
+  ListRow,
+  PressableScale,
+  PrimaryButton,
+  SectionHeader,
+  SkeletonListRow,
+  StaggerItem,
+  StatCard,
+} from "./ui";
+import { palette, radius, shadow, spacing } from "../theme/tokens";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Nexus Colors
-// const Colors = {
-//   background: "#0B0E14",
-//   card: "#151A23",
-//   cardBorder: "#232936",
-//   primary: "#2F80ED",
-//   text: "#FFFFFF",
-//   textGray: "#9CA3AF",
-//   success: "#00C851",
-//   danger: "#FF4444",
-// };
-
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
-  const { Colors } = useTheme();
 
   // Data State
   const [users, setUsers] = useState<any[]>([]);
@@ -51,7 +49,7 @@ export default function AdminDashboard() {
   const [openSheet, setOpenSheet] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
 
-  // Search & Filter State (NEW FEATURES)
+  // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState("All"); // All, Active, Inactive
 
@@ -69,7 +67,7 @@ export default function AdminDashboard() {
     datasets: [{ data: [0, 0, 0, 0, 0, 0, 0] }],
   });
 
-  // Fetch Users
+  // --- Fetch logic preserved exactly ---
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -108,11 +106,11 @@ export default function AdminDashboard() {
   useFocusEffect(
     useCallback(() => {
       fetchUsers();
-      fetchChartStats(); // Call this here
+      fetchChartStats();
     }, []),
   );
 
-  // --- FILTER LOGIC (NEW) ---
+  // --- Filter logic preserved exactly ---
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
@@ -130,7 +128,7 @@ export default function AdminDashboard() {
     });
   }, [users, searchQuery, filterTab]);
 
-  // --- FORM HANDLERS (Keep existing logic) ---
+  // --- Form handlers preserved exactly ---
   const openAddMode = () => {
     setEditingUser(null);
     setName("");
@@ -197,358 +195,246 @@ export default function AdminDashboard() {
     }
   };
 
-  // UI COMPONENTS
+  const totalWeekly = useMemo(
+    () => chartData.datasets[0].data.reduce((a: number, b: number) => a + b, 0),
+    [chartData],
+  );
 
-  const renderUser = ({ item }: any) => (
-    <Card
-      backgroundColor={Colors.card}
-      borderColor={Colors.cardBorder}
-      borderWidth={1}
-      padding="$4"
-      marginBottom="$3"
-      borderRadius="$6"
-      opacity={item.isActive ? 1 : 0.6}
-    >
-      <XStack justifyContent="space-between" alignItems="center">
-        <XStack gap="$3" alignItems="center" flex={1}>
-          {/* User Avatar with Status Dot */}
-          <YStack>
-            <Avatar circular size="$5">
-              <Avatar.Image
-                src={`https://ui-avatars.com/api/?name=${item.name}&background=random`}
-              />
-              <Avatar.Fallback backgroundColor="$gray8" />
-            </Avatar>
-            <YStack
-              position="absolute"
-              bottom={0}
-              right={0}
-              width={12}
-              height={12}
-              borderRadius={6}
-              backgroundColor={item.isActive ? Colors.success : Colors.textGray}
-              borderColor={Colors.card}
-              borderWidth={2}
+  const renderUser = ({ item, index }: any) => (
+    <ListRow
+      index={index}
+      dimmed={!item.isActive}
+      onPress={() => openEditMode(item)}
+      leading={
+        <View>
+          <Avatar circular size="$5">
+            <Avatar.Image
+              src={`https://ui-avatars.com/api/?name=${item.name}&background=random`}
             />
-          </YStack>
-
-          <YStack flex={1}>
-            <H3 fontSize={16} color="white" fontWeight="600">
-              {item.name}
-            </H3>
-            <Text color={Colors.textGray} fontSize={12} numberOfLines={1}>
-              {item.locality || "No Locality"} • ₹{item.priceAllotted}/unit
-            </Text>
-          </YStack>
-        </XStack>
-
-        {/* Edit Button (Pencil Icon) */}
-        <TouchableOpacity
-          onPress={() => openEditMode(item)}
-          style={{ padding: 8 }}
-        >
-          <Feather name="edit-2" size={18} color={Colors.primary} />
-        </TouchableOpacity>
-      </XStack>
-    </Card>
+            <Avatar.Fallback backgroundColor="$gray8" />
+          </Avatar>
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: item.isActive ? palette.success : palette.textTertiary },
+            ]}
+          />
+        </View>
+      }
+      title={item.name}
+      subtitle={`${item.locality || "No Locality"} • ₹${item.priceAllotted}/unit`}
+      trailing={
+        <View style={styles.editIcon}>
+          <Feather name="edit-2" size={16} color={palette.primaryBright} />
+        </View>
+      }
+      showChevron={false}
+    />
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <YStack flex={1} paddingHorizontal="$4" paddingTop="$2">
-        {loading ? (
-          <Spinner size="large" color={Colors.primary} marginTop="$10" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+      <View style={styles.flex}>
+        {loading && users.length === 0 ? (
+          <View style={styles.skeletonWrap}>
+            <SkeletonListRow />
+            <SkeletonListRow />
+            <SkeletonListRow />
+            <SkeletonListRow />
+            <SkeletonListRow />
+          </View>
         ) : (
           <FlatList
             ListHeaderComponent={
-              <YStack gap="$5" marginBottom="$2">
+              <View style={styles.headerWrap}>
                 {/* 1. Header with Avatar */}
-                <XStack justifyContent="space-between" alignItems="center">
-                  <YStack>
-                    <Text
-                      color={Colors.textGray}
-                      fontSize={12}
-                      textTransform="uppercase"
-                      letterSpacing={1}
-                    >
-                      {new Date().toDateString()}
-                    </Text>
-                    <H2 color="white" fontWeight="bold">
-                      Dashboard
-                    </H2>
-                  </YStack>
-                  <Avatar
-                    circular
-                    size="$5"
-                    onPress={() => router.push("/profile")}
-                  >
-                    <Avatar.Image src="https://i.pravatar.cc/150?img=68" />
-                    <Avatar.Fallback backgroundColor="$blue10" />
-                  </Avatar>
-                </XStack>
-
-                {/* 2. Overview Cards (Gradient) */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 12 }}
-                >
-                  {/* Total Users Card */}
-                  <LinearGradient
-                    colors={["#1e3c72", "#2a5298"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      borderRadius: 16,
-                      padding: 20,
-                      width: 160,
-                      height: 140,
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <YStack
-                      backgroundColor="rgba(255,255,255,0.2)"
-                      alignSelf="flex-start"
-                      padding="$2"
-                      borderRadius="$3"
-                    >
-                      <Feather name="users" size={20} color="white" />
-                    </YStack>
-                    <YStack>
-                      <Text color={Colors.textGray} fontSize={12}>
-                        Total Users
+                <StaggerItem index={0}>
+                  <View style={styles.headerRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dateLabel}>
+                        {new Date().toDateString()}
                       </Text>
-                      <H2 color="white">{users.length}</H2>
-                    </YStack>
-                  </LinearGradient>
+                      <Text style={styles.heading}>Dashboard</Text>
+                    </View>
+                    <PressableScale onPress={() => router.push("/profile")}>
+                      <Avatar circular size="$5">
+                        <Avatar.Image src="https://i.pravatar.cc/150?img=68" />
+                        <Avatar.Fallback backgroundColor="$blue10" />
+                      </Avatar>
+                    </PressableScale>
+                  </View>
+                </StaggerItem>
 
-                  {/* Action Card: Shipments */}
-                  <TouchableOpacity
-                    onPress={() => router.push("/admin-shipments")}
+                {/* 2. Overview / Action Cards */}
+                <StaggerItem index={1} style={{ marginBottom: spacing.lg }}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 12 }}
                   >
-                    <LinearGradient
-                      colors={["#360033", "#0b8793"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{
-                        borderRadius: 16,
-                        padding: 20,
-                        width: 160,
-                        height: 140,
-                        justifyContent: "space-between",
+                    <StatCard
+                      icon="users"
+                      label="Total Users"
+                      value={users.length}
+                      preset="primary"
+                      index={0}
+                    />
+                    <GradientCard
+                      preset="accent"
+                      icon="truck"
+                      label="Shipments"
+                      value="Manage"
+                      onPress={() => router.push("/admin-shipments")}
+                    />
+                    <GradientCard
+                      preset="success"
+                      icon="bar-chart-2"
+                      label="Analytics"
+                      value="Reports"
+                      onPress={() => router.push("/admin-reports")}
+                    />
+                    <GradientCard
+                      preset="hero"
+                      icon="file"
+                      label="Shipments"
+                      value="Logs"
+                      onPress={() => router.push("/shipment-tracker")}
+                    />
+                  </ScrollView>
+                </StaggerItem>
+
+                {/* 3. Production Trend Chart */}
+                <StaggerItem index={2}>
+                  <View style={styles.chartCard}>
+                    <View style={styles.chartHeader}>
+                      <Text style={styles.chartTitle}>Production Trend</Text>
+                      <View style={styles.pillRow}>
+                        {["W", "M"].map((label, i) => (
+                          <View
+                            key={label}
+                            style={[
+                              styles.pill,
+                              i === 0 && styles.pillActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.pillText,
+                                i === 0 && styles.pillTextActive,
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    <LineChart
+                      data={chartData}
+                      width={SCREEN_WIDTH - 64}
+                      height={180}
+                      chartConfig={{
+                        backgroundColor: "transparent",
+                        backgroundGradientFrom: palette.surfaceElevated,
+                        backgroundGradientTo: palette.surfaceElevated,
+                        decimalPlaces: 0,
+                        color: (opacity = 1) => `rgba(90, 164, 245, ${opacity})`,
+                        labelColor: (opacity = 1) =>
+                          `rgba(139, 148, 167, ${opacity})`,
+                        propsForDots: {
+                          r: "4",
+                          strokeWidth: "2",
+                          stroke: palette.primaryBright,
+                        },
+                        propsForBackgroundLines: {
+                          stroke: palette.border,
+                        },
                       }}
-                    >
-                      <YStack
-                        backgroundColor="rgba(255,255,255,0.2)"
-                        alignSelf="flex-start"
-                        padding="$2"
-                        borderRadius="$3"
-                      >
-                        <Feather name="truck" size={20} color="white" />
-                      </YStack>
-                      <YStack>
-                        <Text color={Colors.textGray} fontSize={12}>
-                          Shipments
-                        </Text>
-                        <XStack alignItems="center" gap="$2">
-                          <H2 color="white">Manage</H2>
-                          <Feather name="arrow-right" color="white" size={16} />
-                        </XStack>
-                      </YStack>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      bezier
+                      style={{ marginVertical: 8, borderRadius: 16 }}
+                    />
+                    <Text style={styles.chartFootnote}>
+                      {totalWeekly.toLocaleString()} units shipped this week
+                    </Text>
+                  </View>
+                </StaggerItem>
 
-                  {/* Action Card: Reports */}
-                  <TouchableOpacity
-                    onPress={() => router.push("/admin-reports")}
-                  >
-                    <LinearGradient
-                      colors={["#134E5E", "#71B280"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{
-                        borderRadius: 16,
-                        padding: 20,
-                        width: 160,
-                        height: 140,
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <YStack
-                        backgroundColor="rgba(255,255,255,0.2)"
-                        alignSelf="flex-start"
-                        padding="$2"
-                        borderRadius="$3"
-                      >
-                        <Feather name="bar-chart-2" size={20} color="white" />
-                      </YStack>
-                      <YStack>
-                        <Text color={Colors.textGray} fontSize={12}>
-                          Analytics
-                        </Text>
-                        <H2 color="white">Reports</H2>
-                      </YStack>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {/* Action Card: Shipments Logs */}
-                  <TouchableOpacity
-                    onPress={() => router.push("/shipment-tracker")}
-                  >
-                    <LinearGradient
-                      colors={["#360033", "#0b8793"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{
-                        borderRadius: 16,
-                        padding: 20,
-                        width: 160,
-                        height: 140,
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <YStack
-                        backgroundColor="rgba(255,255,255,0.2)"
-                        alignSelf="flex-start"
-                        padding="$2"
-                        borderRadius="$3"
-                      >
-                        <Feather name="file" size={20} color="white" />
-                      </YStack>
-                      <YStack>
-                        <Text color={Colors.textGray} fontSize={12}>
-                          Shipments
-                        </Text>
-                        <XStack alignItems="center" gap="$2">
-                          <H2 color="white">Logs</H2>
-                          <Feather name="arrow-right" color="white" size={16} />
-                        </XStack>
-                      </YStack>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </ScrollView>
-
-                {/* 3. Production Trend Chart (Mock Data for UI) */}
-                <YStack
-                  backgroundColor={Colors.card}
-                  padding="$4"
-                  borderRadius="$5"
-                  borderColor={Colors.cardBorder}
-                  borderWidth={1}
-                >
-                  <XStack justifyContent="space-between" marginBottom="$4">
-                    <H3 color="white" fontSize={16}>
-                      Production Trend
-                    </H3>
-                    <XStack gap="$2">
-                      <Button size="$2" backgroundColor="$blue10" color="white">
-                        W
-                      </Button>
-                      <Button size="$2" chromeless color="$gray10">
-                        M
-                      </Button>
-                    </XStack>
-                  </XStack>
-                  <LineChart
-                    data={chartData} // ✅ NOW USING LIVE STATE
-                    width={SCREEN_WIDTH - 60}
-                    height={180}
-                    chartConfig={{
-                      backgroundColor: Colors.card,
-                      backgroundGradientFrom: Colors.card,
-                      backgroundGradientTo: Colors.card,
-                      decimalPlaces: 0,
-                      color: (opacity = 1) => `rgba(47, 128, 237, ${opacity})`,
-                      labelColor: (opacity = 1) =>
-                        `rgba(156, 163, 175, ${opacity})`,
-                      propsForDots: {
-                        r: "4",
-                        strokeWidth: "2",
-                        stroke: "#2F80ED",
-                      },
-                    }}
-                    bezier
-                    style={{ marginVertical: 8, borderRadius: 16 }}
-                  />
-                </YStack>
-
-                {/* 4. User Management Section Header */}
-                <YStack gap="$3" marginTop="$2">
-                  <H3 color="white">Production Users</H3>
+                {/* 4. User Management */}
+                <StaggerItem index={3} style={styles.userSection}>
+                  <SectionHeader label="Production Users" />
 
                   {/* Search Bar */}
-                  <XStack
-                    backgroundColor={Colors.card}
-                    height={50}
-                    borderRadius="$10"
-                    alignItems="center"
-                    paddingHorizontal="$3"
-                    borderColor={Colors.cardBorder}
-                    borderWidth={1}
-                  >
-                    <Feather name="search" size={20} color={Colors.textGray} />
+                  <View style={styles.searchWrap}>
+                    <Feather name="search" size={18} color={palette.textTertiary} />
                     <Input
                       flex={1}
                       backgroundColor="transparent"
                       borderWidth={0}
                       placeholder="Search by name, ID or locality..."
                       placeholderTextColor="$gray10"
-                      color="white"
+                      color={palette.text}
                       value={searchQuery}
                       onChangeText={setSearchQuery}
                     />
-                  </XStack>
+                  </View>
 
                   {/* Filter Tabs */}
-                  <XStack gap="$2">
+                  <View style={styles.filterRow}>
                     {["All", "Active", "Inactive"].map((tab) => (
-                      <Button
+                      <PressableScale
                         key={tab}
-                        size="$3"
-                        backgroundColor={
-                          filterTab === tab ? Colors.primary : "transparent"
-                        }
-                        borderColor={
-                          filterTab === tab ? "transparent" : Colors.cardBorder
-                        }
-                        borderWidth={1}
-                        borderRadius="$10"
+                        hapticFeedback
                         onPress={() => setFilterTab(tab)}
+                        style={[
+                          styles.filterTab,
+                          filterTab === tab && styles.filterTabActive,
+                        ]}
                       >
                         <Text
-                          color={filterTab === tab ? "white" : Colors.textGray}
-                          fontWeight="600"
+                          style={[
+                            styles.filterText,
+                            filterTab === tab && styles.filterTextActive,
+                          ]}
                         >
                           {tab}
                         </Text>
-                      </Button>
+                      </PressableScale>
                     ))}
-                  </XStack>
-                </YStack>
-              </YStack>
+                  </View>
+                </StaggerItem>
+              </View>
+            }
+            ListEmptyComponent={
+              !loading ? (
+                <EmptyState
+                  icon="users"
+                  title="No users found"
+                  message={
+                    searchQuery
+                      ? "Try a different search term or filter."
+                      : "Add your first production user to get started."
+                  }
+                  actionLabel="Add User"
+                  onAction={openAddMode}
+                />
+              ) : null
             }
             data={filteredUsers}
             keyExtractor={(item: any) => item._id}
             renderItem={renderUser}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
           />
         )}
 
-        {/* FAB (Floating Action Button) */}
-        <Button
-          position="absolute"
-          // ✅ FIX 2: Raise it higher (Tab Bar is ~90px, so we use 110px)
-          bottom={95}
-          right={20}
-          size="$6"
-          circular
-          backgroundColor={Colors.primary}
-          elevation={10}
-          pressStyle={{ scale: 0.95 }}
+        {/* FAB */}
+        <PressableScale
           onPress={openAddMode}
-          icon={<Feather name="plus" size={28} color="white" />}
-        />
+          hapticFeedback
+          style={styles.fab}
+        >
+          <Feather name="plus" size={28} color="#FFFFFF" />
+        </PressableScale>
 
         {/* ADD / EDIT USER SHEET */}
         <Sheet
@@ -559,20 +445,20 @@ export default function AdminDashboard() {
           dismissOnSnapToBottom
         >
           <Sheet.Overlay />
-          <Sheet.Frame padding="$4" gap="$3" backgroundColor={Colors.card}>
+          <Sheet.Frame padding="$4" gap="$3" backgroundColor={palette.surfaceElevated}>
             <Sheet.Handle />
-            <H3 color="white" textAlign="center" marginBottom="$4">
+            <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center" marginBottom="$4">
               {editingUser ? "Edit Profile" : "New User"}
-            </H3>
+            </TText>
 
             <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }}>
               <Input
                 placeholder="Full Name"
                 value={name}
                 onChangeText={setName}
-                backgroundColor={Colors.background}
-                color="white"
-                borderColor={Colors.cardBorder}
+                backgroundColor={palette.surfaceHighest}
+                color={palette.text}
+                borderColor={palette.border}
                 placeholderTextColor="$gray10"
                 size="$4"
               />
@@ -582,9 +468,9 @@ export default function AdminDashboard() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                backgroundColor={Colors.background}
-                color="white"
-                borderColor={Colors.cardBorder}
+                backgroundColor={palette.surfaceHighest}
+                color={palette.text}
+                borderColor={palette.border}
                 placeholderTextColor="$gray10"
                 size="$4"
               />
@@ -593,9 +479,9 @@ export default function AdminDashboard() {
                 value={mobile}
                 onChangeText={setMobile}
                 keyboardType="phone-pad"
-                backgroundColor={Colors.background}
-                color="white"
-                borderColor={Colors.cardBorder}
+                backgroundColor={palette.surfaceHighest}
+                color={palette.text}
+                borderColor={palette.border}
                 placeholderTextColor="$gray10"
                 size="$4"
               />
@@ -603,25 +489,25 @@ export default function AdminDashboard() {
                 placeholder="Locality"
                 value={locality}
                 onChangeText={setLocality}
-                backgroundColor={Colors.background}
-                color="white"
-                borderColor={Colors.cardBorder}
+                backgroundColor={palette.surfaceHighest}
+                color={palette.text}
+                borderColor={palette.border}
                 placeholderTextColor="$gray10"
                 size="$4"
               />
 
               <YStack>
-                <Text color={Colors.textGray} fontSize={12} marginBottom="$1">
+                <TText color={palette.textSecondary} fontSize={12} marginBottom="$1">
                   Price Rate (₹)
-                </Text>
+                </TText>
                 <Input
                   placeholder="1.50"
                   value={price}
                   onChangeText={setPrice}
                   keyboardType="numeric"
-                  backgroundColor={Colors.background}
-                  color="white"
-                  borderColor={Colors.cardBorder}
+                  backgroundColor={palette.surfaceHighest}
+                  color={palette.text}
+                  borderColor={palette.border}
                   placeholderTextColor="$gray10"
                   size="$4"
                 />
@@ -633,50 +519,189 @@ export default function AdminDashboard() {
                 }
                 value={password}
                 onChangeText={setPassword}
-                backgroundColor={Colors.background}
-                color="white"
-                borderColor={Colors.cardBorder}
+                backgroundColor={palette.surfaceHighest}
+                color={palette.text}
+                borderColor={palette.border}
                 placeholderTextColor="$gray10"
                 size="$4"
                 secureTextEntry
               />
 
-              <XStack
-                alignItems="center"
-                justifyContent="space-between"
-                backgroundColor={Colors.background}
-                padding="$3"
-                borderRadius="$4"
-                borderColor={Colors.cardBorder}
-                borderWidth={1}
-              >
-                <Text color={Colors.textGray}>Account Status</Text>
-                <Button
-                  size="$3"
-                  backgroundColor={isActive ? Colors.success : Colors.danger}
+              <View style={styles.statusToggleRow}>
+                <Text style={styles.statusToggleLabel}>Account Status</Text>
+                <PressableScale
+                  hapticFeedback
                   onPress={() => setIsActive(!isActive)}
+                  style={[
+                    styles.statusPill,
+                    isActive ? styles.statusPillActive : styles.statusPillInactive,
+                  ]}
                 >
-                  <Text color={Colors.textGray} fontWeight="bold">
+                  <Text
+                    style={[
+                      styles.statusPillText,
+                      isActive
+                        ? styles.statusPillTextActive
+                        : styles.statusPillTextInactive,
+                    ]}
+                  >
                     {isActive ? "Active" : "Inactive"}
                   </Text>
-                </Button>
-              </XStack>
+                </PressableScale>
+              </View>
 
-              <Button
-                backgroundColor={Colors.primary}
-                size="$5"
+              <PrimaryButton
+                label={editingUser ? "Update User" : "Create User"}
+                loading={uploading}
+                size="lg"
                 onPress={handleSaveUser}
-                disabled={uploading}
-                icon={uploading ? <Spinner color="white" /> : undefined}
-              >
-                <Text color={Colors.textGray} fontWeight="bold">
-                  {editingUser ? "Update User" : "Create User"}
-                </Text>
-              </Button>
+              />
             </ScrollView>
           </Sheet.Frame>
         </Sheet>
-      </YStack>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  skeletonWrap: { padding: spacing.lg, gap: spacing.sm },
+  headerWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.lg },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  dateLabel: {
+    color: palette.textSecondary,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  heading: {
+    color: palette.text,
+    fontSize: 26,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+  },
+  chartCard: {
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  chartHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  chartTitle: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  pillRow: { flexDirection: "row", gap: 6 },
+  pill: {
+    width: 32,
+    height: 28,
+    borderRadius: radius.sm,
+    backgroundColor: palette.surfaceHighest,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillActive: { backgroundColor: palette.primarySoft },
+  pillText: {
+    color: palette.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  pillTextActive: { color: palette.primaryBright },
+  chartFootnote: {
+    color: palette.textTertiary,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: -spacing.xs,
+  },
+  userSection: { gap: spacing.md, marginBottom: spacing.md },
+  searchWrap: {
+    backgroundColor: palette.surfaceElevated,
+    height: 50,
+    borderRadius: radius.pill,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  filterRow: { flexDirection: "row", gap: spacing.sm },
+  filterTab: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  filterTabActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  filterText: { color: palette.textSecondary, fontSize: 13, fontWeight: "600" },
+  filterTextActive: { color: "#FFFFFF" },
+  statusDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderColor: palette.surfaceElevated,
+    borderWidth: 2,
+  },
+  editIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: palette.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fab: {
+    position: "absolute",
+    bottom: 95,
+    right: 20,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: palette.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow(6),
+  },
+  statusToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: palette.surfaceHighest,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  statusToggleLabel: { color: palette.text, fontSize: 14 },
+  statusPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+  },
+  statusPillActive: { backgroundColor: `${palette.success}22` },
+  statusPillInactive: { backgroundColor: `${palette.danger}22` },
+  statusPillText: { fontSize: 13, fontWeight: "700" },
+  statusPillTextActive: { color: palette.success },
+  statusPillTextInactive: { color: palette.danger },
+});

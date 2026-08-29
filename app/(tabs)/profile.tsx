@@ -1,45 +1,37 @@
 import { AppVersionDisplay } from "@/components/AppVersionDisplay";
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { ComponentProps, useState } from "react";
 import {
   Alert,
   Linking,
   Platform,
   ScrollView,
-  TouchableOpacity,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  Avatar,
-  Button,
-  H3,
+  Avatar as TAvatar,
   Input,
-  Separator,
   Sheet,
-  Spinner,
   Switch,
-  Text,
-  XStack,
-  YStack,
+  Text as TText,
 } from "tamagui";
+import {
+  PressableScale,
+  PrimaryButton,
+  SectionHeader,
+  StaggerItem,
+} from "../../src/components/ui";
+import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
-import { useTheme } from "../../src/context/ThemeContext";
 
 // ⚠️ REPLACE IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-// Nexus Colors
-// const Colors = {
-//   background: "#0B0E14",
-//   card: "#151A23",
-//   cardBorder: "#232936",
-//   primary: "#2F80ED",
-//   text: "#9CA3AF",
-//   success: "#00C851",
-//   danger: "#FF4444",
-// };
+type FeatherName = ComponentProps<typeof Feather>["name"];
 
 export default function ProfileScreen() {
   const { logout, user } = useAuth();
@@ -51,12 +43,11 @@ export default function ProfileScreen() {
   const [email, setEmail] = useState<any>(user?.email || "");
   const [mobile, setMobile] = useState<any>(user?.mobile || "");
   const [password, setPassword] = useState("");
-  const { theme, toggleTheme, Colors } = useTheme();
 
-  // Mock Settings State
+  // Settings State
   const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
 
+  // --- Update logic preserved exactly ---
   const handleUpdate = async () => {
     setLoading(true);
     try {
@@ -82,270 +73,130 @@ export default function ProfileScreen() {
     value,
     onPress,
     isDestructive = false,
-  }: any) => (
-    <TouchableOpacity onPress={onPress}>
-      <XStack
-        paddingVertical="$3"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <XStack gap="$3" alignItems="center">
-          <YStack
-            width={36}
-            height={36}
-            borderRadius="$4"
-            backgroundColor={
-              isDestructive ? "rgba(255, 68, 68, 0.1)" : Colors.card
-            }
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Feather
-              name={icon}
-              size={18}
-              color={isDestructive ? Colors.danger : Colors.primary}
-            />
-          </YStack>
-          <Text
-            color={isDestructive ? Colors.danger : Colors.text}
-            fontSize={16}
-          >
-            {label}
-          </Text>
-        </XStack>
-        {value ? (
-          <Text color={Colors.text}>{value}</Text>
-        ) : (
-          <Feather name="chevron-right" size={18} color={Colors.text} />
-        )}
-      </XStack>
-    </TouchableOpacity>
+  }: {
+    icon: FeatherName;
+    label: string;
+    value?: string;
+    onPress: () => void;
+    isDestructive?: boolean;
+  }) => (
+    <PressableScale hapticFeedback onPress={onPress} style={styles.menuRow}>
+      <View style={styles.menuLeft}>
+        <View
+          style={[
+            styles.menuIcon,
+            isDestructive && styles.menuIconDanger,
+          ]}
+        >
+          <Feather
+            name={icon}
+            size={17}
+            color={isDestructive ? palette.danger : palette.primaryBright}
+          />
+        </View>
+        <Text
+          style={[
+            styles.menuLabel,
+            isDestructive && { color: palette.danger },
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
+      {value ? (
+        <Text style={styles.menuValue}>{value}</Text>
+      ) : (
+        <Feather name="chevron-right" size={17} color={palette.textTertiary} />
+      )}
+    </PressableScale>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
-        {/* 1. Header Section */}
-        <LinearGradient
-          colors={[Colors.card, Colors.background]}
-          style={{
-            padding: 20,
-            alignItems: "center",
-            borderBottomWidth: 1,
-            borderBottomColor: Colors.cardBorder,
-          }}
-        >
-          <YStack marginBottom="$4" alignItems="center">
-            <Avatar circular size="$10">
-              <Avatar.Image
-                src={`https://ui-avatars.com/api/?name=${user?.name}&background=2F80ED&color=fff&size=128`}
-              />
-              <Avatar.Fallback backgroundColor={Colors.primary} />
-            </Avatar>
-            <YStack
-              position="absolute"
-              bottom={0}
-              right={0}
-              backgroundColor={Colors.card}
-              borderRadius="$10"
-              padding="$2"
-              borderWidth={2}
-              borderColor={Colors.background}
-            >
-              <TouchableOpacity onPress={() => setOpenSheet(true)}>
-                <Feather name="edit-2" size={16} color={Colors.text} />
-              </TouchableOpacity>
-            </YStack>
-          </YStack>
-
-          <H3 color={Colors.text} fontWeight="bold">
-            {user?.name}
-          </H3>
-          <Text color={Colors.text}>{user?.email}</Text>
-
-          <XStack marginTop="$3" gap="$2">
-            <YStack
-              backgroundColor={Colors.card}
-              paddingHorizontal="$3"
-              paddingVertical="$1"
-              borderRadius="$10"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
-              <Text
-                color={Colors.primary}
-                fontSize={12}
-                fontWeight="bold"
-                textTransform="uppercase"
-              >
-                {user?.role}
-              </Text>
-            </YStack>
-            {user?.role === "production" && (
-              <YStack
-                backgroundColor="rgba(0, 200, 81, 0.1)"
-                paddingHorizontal="$3"
-                paddingVertical="$1"
-                borderRadius="$10"
-                borderColor={Colors.success}
-                borderWidth={1}
-              >
-                <Text color={Colors.success} fontSize={12} fontWeight="bold">
-                  ₹ {user?.priceAllotted}/unit
-                </Text>
-              </YStack>
-            )}
-          </XStack>
-        </LinearGradient>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+        {/* 1. Header */}
+        <StaggerItem index={0}>
+          <View style={styles.hero}>
+            <View style={styles.heroTop}>
+              <View>
+                <Avatar user={user} onPress={() => setOpenSheet(true)} />
+              </View>
+              <View style={{ alignItems: "center", marginTop: spacing.md }}>
+                <Text style={styles.userName}>{user?.name}</Text>
+                <Text style={styles.userEmail}>{user?.email}</Text>
+              </View>
+              <View style={styles.badgeRow}>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleText}>{user?.role}</Text>
+                </View>
+                {user?.role === "production" && (
+                  <View style={styles.rateBadge}>
+                    <Text style={styles.rateText}>
+                      ₹ {user?.priceAllotted}/unit
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </StaggerItem>
 
         {/* 2. Settings Groups */}
-        <YStack padding="$4" gap="$4">
-          {/* Account Settings */}
-          <YStack>
-            <Text
-              color={Colors.text}
-              fontSize={12}
-              fontWeight="bold"
-              marginBottom="$2"
-              letterSpacing={1}
-            >
-              ACCOUNT
-            </Text>
-            <YStack
-              backgroundColor={Colors.card}
-              borderRadius="$4"
-              padding="$3"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
+        <View style={styles.groupsWrap}>
+          {/* Account */}
+          <StaggerItem index={1}>
+            <SectionHeader label="Account" />
+            <View style={styles.groupCard}>
               <MenuItem
                 icon="user"
                 label="Personal Details"
                 onPress={() => setOpenSheet(true)}
               />
-              <Separator borderColor={Colors.cardBorder} />
+              <View style={styles.groupDivider} />
               <MenuItem
                 icon="smartphone"
                 label="Mobile Number"
                 value={user?.mobile || "Not set"}
                 onPress={() => setOpenSheet(true)}
               />
-            </YStack>
-          </YStack>
+            </View>
+          </StaggerItem>
 
-          {/* App Preferences */}
-          <YStack>
-            <Text
-              color={Colors.text}
-              fontSize={12}
-              fontWeight="bold"
-              marginBottom="$2"
-              letterSpacing={1}
-            >
-              PREFERENCES
-            </Text>
-            <YStack
-              backgroundColor={Colors.card}
-              borderRadius="$4"
-              padding="$3"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
-              <XStack
-                paddingVertical="$3"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <XStack gap="$3" alignItems="center">
-                  <YStack
-                    width={36}
-                    height={36}
-                    borderRadius="$4"
-                    backgroundColor={Colors.card}
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <Feather name="bell" size={18} color={Colors.primary} />
-                  </YStack>
-                  <Text color={Colors.text} fontSize={16}>
-                    Push Notifications
-                  </Text>
-                </XStack>
+          {/* Preferences */}
+          <StaggerItem index={2}>
+            <SectionHeader label="Preferences" />
+            <View style={styles.groupCard}>
+              <View style={styles.prefRow}>
+                <View style={styles.menuLeft}>
+                  <View style={styles.menuIcon}>
+                    <Feather name="bell" size={17} color={palette.primaryBright} />
+                  </View>
+                  <Text style={styles.menuLabel}>Push Notifications</Text>
+                </View>
                 <Switch
                   size="$2"
                   checked={notifications}
                   onCheckedChange={setNotifications}
                   backgroundColor={
-                    notifications ? Colors.primary : Colors.cardBorder
+                    notifications ? palette.primary : palette.border
                   }
                 >
-                  <Switch.Thumb animation="bouncy" />
+                  <Switch.Thumb backgroundColor="#FFFFFF" />
                 </Switch>
-              </XStack>
-              <Separator borderColor={Colors.cardBorder} />
-              <XStack
-                paddingVertical="$3"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <XStack gap="$3" alignItems="center">
-                  <YStack
-                    width={36}
-                    height={36}
-                    borderRadius="$4"
-                    backgroundColor={Colors.card}
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <Feather
-                      name={theme === "dark" ? "moon" : "sun"}
-                      size={18}
-                      color={Colors.primary}
-                    />
-                  </YStack>
-                  <Text color={Colors.text} fontSize={16}>
-                    Dark Mode
-                  </Text>
-                </XStack>
+              </View>
+            </View>
+          </StaggerItem>
 
-                <Switch
-                  size="$2"
-                  checked={theme === "dark"} // ✅ Check real theme
-                  onCheckedChange={toggleTheme} // ✅ Call real toggle
-                  backgroundColor={
-                    theme === "dark" ? Colors.primary : Colors.cardBorder
-                  }
-                >
-                  <Switch.Thumb animation="bouncy" />
-                </Switch>
-              </XStack>
-            </YStack>
-          </YStack>
-
-          {/* Support & Logout */}
-          <YStack>
-            <Text
-              color={Colors.text}
-              fontSize={12}
-              fontWeight="bold"
-              marginBottom="$2"
-              letterSpacing={1}
-            >
-              SUPPORT
-            </Text>
-            <YStack
-              backgroundColor={Colors.card}
-              borderRadius="$4"
-              padding="$3"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
+          {/* Support */}
+          <StaggerItem index={3}>
+            <SectionHeader label="Support" />
+            <View style={styles.groupCard}>
               <MenuItem
                 icon="help-circle"
                 label="Help & Support"
                 onPress={() => Linking.openURL("mailto:support@masalaflow.com")}
               />
-              <Separator borderColor={Colors.cardBorder} />
+              <View style={styles.groupDivider} />
               <MenuItem
                 icon="log-out"
                 label="Log Out"
@@ -365,19 +216,11 @@ export default function ProfileScreen() {
                   }
                 }}
               />
-            </YStack>
-          </YStack>
+            </View>
+          </StaggerItem>
 
-          {/* <Text
-            textAlign="center"
-            color={Colors.text}
-            fontSize={12}
-            marginTop="$4"
-          >
-            Version 2.4.0 • Nexus Supply Inc.
-          </Text> */}
           <AppVersionDisplay marginTop="$4" />
-        </YStack>
+        </View>
       </ScrollView>
 
       {/* Edit Profile Sheet */}
@@ -389,29 +232,29 @@ export default function ProfileScreen() {
         dismissOnSnapToBottom
       >
         <Sheet.Overlay />
-        <Sheet.Frame padding="$4" gap="$4" backgroundColor={Colors.card}>
+        <Sheet.Frame padding="$4" gap="$4" backgroundColor={palette.surfaceElevated}>
           <Sheet.Handle />
-          <H3 color="white" textAlign="center">
+          <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center">
             Edit Profile
-          </H3>
+          </TText>
 
-          <YStack gap="$3">
+          <View style={{ gap: spacing.md }}>
             <Input
               value={name}
               onChangeText={setName}
               placeholder="Full Name"
-              backgroundColor={Colors.background}
-              color="white"
-              borderColor={Colors.cardBorder}
+              backgroundColor={palette.surfaceHighest}
+              color={palette.text}
+              borderColor={palette.border}
               placeholderTextColor="$gray10"
             />
             <Input
               value={email}
               onChangeText={setEmail}
               placeholder="Email Address"
-              backgroundColor={Colors.background}
-              color="white"
-              borderColor={Colors.cardBorder}
+              backgroundColor={palette.surfaceHighest}
+              color={palette.text}
+              borderColor={palette.border}
               placeholderTextColor="$gray10"
               keyboardType="email-address"
             />
@@ -419,9 +262,9 @@ export default function ProfileScreen() {
               value={mobile}
               onChangeText={setMobile}
               placeholder="Mobile Number"
-              backgroundColor={Colors.background}
-              color="white"
-              borderColor={Colors.cardBorder}
+              backgroundColor={palette.surfaceHighest}
+              color={palette.text}
+              borderColor={palette.border}
               placeholderTextColor="$gray10"
               keyboardType="phone-pad"
             />
@@ -429,26 +272,152 @@ export default function ProfileScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="New Password (Optional)"
-              backgroundColor={Colors.background}
-              color="white"
-              borderColor={Colors.cardBorder}
+              backgroundColor={palette.surfaceHighest}
+              color={palette.text}
+              borderColor={palette.border}
               placeholderTextColor="$gray10"
               secureTextEntry
             />
-          </YStack>
+          </View>
 
-          <Button
-            backgroundColor={Colors.primary}
+          <PrimaryButton
+            label={loading ? "Saving..." : "Save Changes"}
+            loading={loading}
             onPress={handleUpdate}
-            disabled={loading}
-            icon={loading ? <Spinner color="white" /> : undefined}
-          >
-            <Text color={Colors.text} fontWeight="bold">
-              {loading ? "Saving..." : "Save Changes"}
-            </Text>
-          </Button>
+          />
         </Sheet.Frame>
       </Sheet>
     </SafeAreaView>
   );
 }
+
+// Avatar with edit overlay
+function Avatar({ user, onPress }: { user: any; onPress: () => void }) {
+  return (
+    <View style={avatarStyles.wrap}>
+      <AvatarMain name={user?.name} />
+      <PressableScale
+        onPress={onPress}
+        hapticFeedback
+        style={avatarStyles.editBtn}
+      >
+        <Feather name="edit-2" size={14} color={palette.text} />
+      </PressableScale>
+    </View>
+  );
+}
+
+function AvatarMain({ name }: { name?: string }) {
+  return (
+    <TAvatar circular size="$10">
+      <TAvatar.Image
+        src={`https://ui-avatars.com/api/?name=${name}&background=2F80ED&color=fff&size=128`}
+      />
+      <TAvatar.Fallback backgroundColor={palette.primary} />
+    </TAvatar>
+  );
+}
+
+const avatarStyles = StyleSheet.create({
+  wrap: { position: "relative" },
+  editBtn: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: palette.surfaceHighest,
+    borderRadius: radius.pill,
+    padding: 7,
+    borderWidth: 2,
+    borderColor: palette.background,
+  },
+});
+
+const styles = StyleSheet.create({
+  hero: {
+    padding: spacing.xl,
+    alignItems: "center",
+    backgroundColor: palette.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  heroTop: { alignItems: "center", width: "100%" },
+  userName: {
+    color: palette.text,
+    fontSize: 21,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  userEmail: {
+    color: palette.textSecondary,
+    fontSize: 13,
+    marginTop: 3,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  roleBadge: {
+    backgroundColor: palette.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: `${palette.primary}33`,
+  },
+  roleText: {
+    color: palette.primaryBright,
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  rateBadge: {
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderColor: palette.success,
+    borderWidth: 1,
+  },
+  rateText: {
+    color: palette.success,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  groupsWrap: { padding: spacing.lg, gap: spacing.lg },
+  groupCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  groupDivider: { height: 1, backgroundColor: palette.border, marginVertical: 4 },
+  menuRow: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.sm,
+  },
+  menuLeft: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
+  menuIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: palette.primarySoft,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuIconDanger: { backgroundColor: "rgba(248, 113, 113, 0.12)" },
+  menuLabel: { color: palette.text, fontSize: 15, fontWeight: "500" },
+  menuValue: { color: palette.textSecondary, fontSize: 14 },
+  prefRow: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.sm,
+  },
+});

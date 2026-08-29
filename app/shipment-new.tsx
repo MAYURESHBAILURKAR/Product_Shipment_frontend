@@ -4,19 +4,32 @@ import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Modal, Image as RNImage } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Image as RNImage,
+  Modal,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ViewShot from "react-native-view-shot";
+import { Input } from "tamagui";
 import {
-  Button,
-  Card,
-  H3,
-  Input,
-  Spinner,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
+  EmptyState,
+  PressableScale,
+  PrimaryButton,
+  ScreenHeader,
+  SkeletonListRow,
+  StaggerItem,
+} from "../src/components/ui";
+import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 
 // ⚠️ REPLACE WITH YOUR IP
@@ -24,19 +37,6 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 // Currently unused now that sharing goes through Copy Details + Share Image,
 // kept in case you want to add a direct WhatsApp deep-link back in later.
 const ADMIN_PHONE = process.env.EXPO_PUBLIC_ADMIN_PHONE;
-
-// Nexus Colors
-const Colors = {
-  background: "#0B0E14",
-  card: "#151A23",
-  cardSelected: "#1A273A",
-  cardBorder: "#232936",
-  primary: "#2F80ED",
-  textGray: "#9CA3AF",
-  success: "#00C851",
-  accent: "#4CC9F0",
-  danger: "#FF4444",
-};
 
 export default function NewShipmentScreen() {
   const router = useRouter();
@@ -59,6 +59,7 @@ export default function NewShipmentScreen() {
     fetchProducts();
   }, []);
 
+  // --- Fetch logic preserved exactly ---
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -73,6 +74,7 @@ export default function NewShipmentScreen() {
     }
   };
 
+  // --- Filter/sort logic preserved exactly ---
   const filteredProducts = useMemo(() => {
     // 1. Filter
     const filtered = products.filter((p) => {
@@ -95,6 +97,7 @@ export default function NewShipmentScreen() {
     });
   }, [products, searchQuery, showSelectedOnly, cart]);
 
+  // --- Stepper logic preserved exactly (1000 start, ±500 steps) ---
   const updateQuantity = (productId: string, change: number) => {
     setCart((prev) => {
       const current = prev[productId] || 0;
@@ -114,6 +117,18 @@ export default function NewShipmentScreen() {
   const totalItems = Object.values(cart).reduce((a, b) => a + b, 0);
   const estimatedPayout = totalItems * (user?.priceAllotted || 0);
   const progressPercent = Math.min((totalItems / 5000) * 100, 100);
+
+  // Springy footer progress bar (lives OUTSIDE the ViewShot capture area)
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withSpring(Math.min(progressPercent / 100, 1), {
+      damping: 18,
+      stiffness: 130,
+    });
+  }, [progressPercent]);
+  const progressFillStyle = useAnimatedStyle(() => ({
+    flex: Math.max(progress.value, 0.001),
+  }));
 
   // Derived list of selected products with resolved product data
   const cartItems = useMemo(() => {
@@ -151,6 +166,7 @@ ${itemsList}
 Please approve this in the Admin App.`;
   };
 
+  // --- Submit preserved exactly ---
   const handleSubmit = async () => {
     if (totalItems === 0) {
       Alert.alert("Error", "Please add at least one item.");
@@ -233,411 +249,577 @@ Please approve this in the Admin App.`;
     router.back();
   };
 
-  const renderProduct = ({ item }: any) => {
+  const renderProduct = ({ item, index }: any) => {
     const qty = cart[item._id] || 0;
     const isSelected = qty > 0;
 
     return (
-      <Card
-        backgroundColor={isSelected ? Colors.cardSelected : Colors.card}
-        borderColor={isSelected ? Colors.primary : Colors.cardBorder}
-        borderWidth={isSelected ? 2 : 1}
-        padding="$0"
-        marginBottom="$3"
-        borderRadius="$4"
-        overflow="hidden"
-        animation="bouncy"
-      >
-        <XStack alignItems="center">
-          {/* Image Section */}
-          <YStack width={80} height={90} backgroundColor="#000">
-            <RNImage
-              source={{ uri: item.photoUrl || "https://placehold.co/100" }}
-              style={{
-                width: "100%",
-                height: "100%",
-                opacity: isSelected ? 1 : 0.7,
-              }}
-            />
-            {isSelected && (
-              <YStack
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                backgroundColor="rgba(47, 128, 237, 0.3)"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <Feather name="check-circle" size={24} color="white" />
-              </YStack>
-            )}
-          </YStack>
+      <StaggerItem index={index % 8} travelY={10}>
+        <View
+          style={[
+            styles.productCard,
+            isSelected && styles.productCardSelected,
+          ]}
+        >
+          <View style={styles.productRow}>
+            {/* Image */}
+            <View style={styles.productImageWrap}>
+              <RNImage
+                source={{ uri: item.photoUrl || "https://placehold.co/100" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  opacity: isSelected ? 1 : 0.7,
+                }}
+              />
+              {isSelected && (
+                <View style={styles.selectedOverlay}>
+                  <Feather name="check-circle" size={24} color="white" />
+                </View>
+              )}
+            </View>
 
-          {/* Content Section */}
-          <YStack flex={1} padding="$3" justifyContent="space-between">
-            <XStack justifyContent="space-between" alignItems="flex-start">
-              <YStack>
-                <Text color="white" fontWeight="bold" fontSize={14}>
-                  {item.name}
-                </Text>
-                <Text color={Colors.textGray} fontSize={12}>
-                  SKU: {item._id.slice(-4).toUpperCase()}
-                </Text>
-              </YStack>
-              <YStack alignItems="flex-end">
-                <Text color={Colors.accent} fontWeight="bold">
-                  ₹ {user?.priceAllotted}
-                </Text>
-              </YStack>
-            </XStack>
+            {/* Content */}
+            <View style={styles.productContent}>
+              <View style={styles.productTop}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.productName}>{item.name}</Text>
+                  <Text style={styles.productSku}>
+                    SKU: {item._id.slice(-4).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.productPrice}>₹ {user?.priceAllotted}</Text>
+              </View>
 
-            <XStack
-              justifyContent="space-between"
-              alignItems="center"
-              marginTop="$2"
-            >
-              <Text
-                color={
-                  item.currentStock < 500 ? Colors.danger : Colors.textGray
-                }
-                fontSize={11}
-              >
-                Stock: {item.currentStock}
-              </Text>
-
-              <XStack
-                alignItems="center"
-                gap="$3"
-                backgroundColor={
-                  isSelected ? Colors.primary : Colors.background
-                }
-                borderRadius="$4"
-                paddingVertical={4}
-                paddingHorizontal={6}
-                borderColor={isSelected ? Colors.primary : Colors.cardBorder}
-                borderWidth={1}
-              >
-                <Button
-                  size="$2"
-                  circular
-                  chromeless
-                  onPress={() => updateQuantity(item._id, -1)}
-                  icon={<Feather name="minus" size={14} color="white" />}
-                />
+              <View style={styles.productBottom}>
                 <Text
-                  color="white"
-                  fontWeight="bold"
-                  fontSize={14}
-                  width={30}
-                  textAlign="center"
+                  style={[
+                    styles.stockText,
+                    item.currentStock < 500 && { color: palette.danger },
+                  ]}
                 >
-                  {qty}
+                  Stock: {item.currentStock}
                 </Text>
-                <Button
-                  size="$2"
-                  circular
-                  chromeless
-                  onPress={() => updateQuantity(item._id, 1)}
-                  icon={<Feather name="plus" size={14} color="white" />}
-                />
-              </XStack>
-            </XStack>
-          </YStack>
-        </XStack>
-      </Card>
+
+                {/* Stepper */}
+                <View
+                  style={[
+                    styles.stepper,
+                    isSelected && styles.stepperActive,
+                  ]}
+                >
+                  <PressableScale
+                    hapticFeedback
+                    onPress={() => updateQuantity(item._id, -1)}
+                    style={styles.stepBtn}
+                  >
+                    <Feather name="minus" size={14} color="#FFFFFF" />
+                  </PressableScale>
+                  <Text style={styles.qtyText}>{qty}</Text>
+                  <PressableScale
+                    hapticFeedback
+                    onPress={() => updateQuantity(item._id, 1)}
+                    style={styles.stepBtn}
+                  >
+                    <Feather name="plus" size={14} color="#FFFFFF" />
+                  </PressableScale>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </StaggerItem>
     );
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <YStack flex={1} paddingHorizontal="$4" paddingTop="$2">
-        {/* Header Section */}
-        <XStack alignItems="center" gap="$3" marginBottom="$2">
-          <Button
-            icon={<Feather name="arrow-left" size={24} color="white" />}
-            chromeless
-            onPress={() => router.back()}
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+      <View style={styles.flex}>
+        {/* Header */}
+        <View style={styles.headerPad}>
+          <ScreenHeader
+            title="Select Products"
+            subtitle="NEW SHIPMENT"
+            onBack={() => router.back()}
           />
-          <YStack>
-            <H3 color="white" fontWeight="bold">
-              Select Products
-            </H3>
-          </YStack>
-        </XStack>
+        </View>
 
         {/* Search Bar + Filter Toggle */}
-        <XStack gap="$2" marginBottom="$4">
-          <XStack
-            flex={1}
-            backgroundColor="white"
-            borderRadius="$4"
-            height={45}
-            alignItems="center"
-            paddingHorizontal="$3"
-          >
-            <Feather name="search" size={20} color="#666" />
+        <View style={styles.searchRow}>
+          <View style={styles.searchWrap}>
+            <Feather name="search" size={17} color={palette.textTertiary} />
             <Input
               flex={1}
               backgroundColor="transparent"
               borderWidth={0}
               placeholder="Search products..."
               placeholderTextColor="$gray10"
-              color="black"
+              color={palette.text}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-          </XStack>
+          </View>
 
-          <Button
-            backgroundColor={showSelectedOnly ? Colors.primary : Colors.card}
-            borderColor={showSelectedOnly ? Colors.primary : Colors.cardBorder}
-            borderWidth={1}
-            width={45}
-            height={45}
-            borderRadius="$4"
+          <PressableScale
+            hapticFeedback
             onPress={() => setShowSelectedOnly(!showSelectedOnly)}
-            padding="$0"
-            justifyContent="center"
-            alignItems="center"
-            icon={
-              <Feather
-                name="shopping-cart"
-                size={20}
-                color={showSelectedOnly ? "white" : Colors.textGray}
-              />
-            }
-          />
-        </XStack>
+            style={[
+              styles.filterBtn,
+              showSelectedOnly && styles.filterBtnActive,
+            ]}
+          >
+            <Feather
+              name="shopping-cart"
+              size={18}
+              color={showSelectedOnly ? palette.primaryBright : palette.textTertiary}
+            />
+          </PressableScale>
+        </View>
 
-        <XStack justifyContent="space-between" marginBottom="$3">
-          <Text color={Colors.textGray} fontSize={12} letterSpacing={1}>
+        <View style={styles.listMeta}>
+          <Text style={styles.listMetaLabel}>
             {showSelectedOnly ? "SELECTED ITEMS" : "AVAILABLE ITEMS"}
           </Text>
           {totalItems > 0 && (
-            <Text color={Colors.accent} fontSize={12} fontWeight="bold">
+            <Text style={styles.selectedCount}>
               {Object.keys(cart).filter((k) => cart[k] > 0).length} Product(s)
               Selected
             </Text>
           )}
-        </XStack>
+        </View>
 
         {loading ? (
-          <Spinner size="large" color={Colors.primary} marginTop="$10" />
+          <View style={styles.skeletonWrap}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonListRow key={i} />
+            ))}
+          </View>
         ) : (
           <FlatList
             data={filteredProducts}
             keyExtractor={(item) => item._id}
             renderItem={renderProduct}
-            contentContainerStyle={{ paddingBottom: 180 }}
+            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 200 }}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <Text color={Colors.textGray} textAlign="center" marginTop="$10">
-                {showSelectedOnly
-                  ? "No items selected yet."
-                  : "No products found."}
-              </Text>
+              !loading ? (
+                <EmptyState
+                  icon="package"
+                  title={showSelectedOnly ? "Nothing selected" : "No products found"}
+                  message={
+                    showSelectedOnly
+                      ? "Tap the + stepper on a product to add it."
+                      : "Add products from the Products tab first."
+                  }
+                />
+              ) : null
             }
           />
         )}
 
         {/* Live Budget Footer */}
-        <YStack
-          position="absolute"
-          bottom={0}
-          left={0}
-          right={0}
-          backgroundColor={Colors.card}
-          padding="$4"
-          borderTopColor={Colors.cardBorder}
-          borderTopWidth={1}
-        >
-          <XStack
-            justifyContent="space-between"
-            alignItems="flex-end"
-            marginBottom="$2"
-          >
-            <YStack>
-              <Text color={Colors.textGray} fontSize={11}>
-                ESTIMATED PAYOUT
+        <View style={styles.footer}>
+          <View style={styles.footerStats}>
+            <View>
+              <Text style={styles.footerLabel}>ESTIMATED PAYOUT</Text>
+              <Text style={styles.footerPayout}>
+                ₹ {estimatedPayout.toFixed(2)}
               </Text>
-              <H3 color="white">₹ {estimatedPayout.toFixed(2)}</H3>
-            </YStack>
-            <YStack alignItems="flex-end">
-              <Text color={Colors.textGray} fontSize={11}>
-                TOTAL ITEMS
-              </Text>
-              <Text color="white" fontWeight="bold" fontSize={16}>
-                {totalItems}
-              </Text>
-            </YStack>
-          </XStack>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.footerLabel}>TOTAL ITEMS</Text>
+              <Text style={styles.footerItems}>{totalItems}</Text>
+            </View>
+          </View>
 
-          <YStack
-            height={6}
-            backgroundColor={Colors.background}
-            borderRadius={3}
-            marginBottom="$4"
-            overflow="hidden"
-          >
-            <YStack
-              height="100%"
-              width={`${progressPercent}%`}
-              backgroundColor={Colors.primary}
+          <View style={styles.progressTrack}>
+            <Animated.View
+              style={[styles.progressFill, progressFillStyle]}
             />
-          </YStack>
+          </View>
 
-          <Button
-            backgroundColor={Colors.primary}
-            height={50}
-            borderRadius="$4"
+          <PrimaryButton
+            label="Confirm & Send"
+            icon="arrow-right"
+            size="lg"
+            loading={submitting}
+            disabled={totalItems === 0}
             onPress={handleSubmit}
-            disabled={submitting || totalItems === 0}
-            iconAfter={
-              !submitting ? (
-                <Feather name="arrow-right" size={20} color="white" />
-              ) : undefined
-            }
-            pressStyle={{ opacity: 0.8 }}
-          >
-            {submitting ? (
-              <Spinner color="white" />
-            ) : (
-              <Text color="white" fontWeight="bold" fontSize={16}>
-                Confirm & Send
-              </Text>
-            )}
-          </Button>
-        </YStack>
-      </YStack>
+          />
+        </View>
+      </View>
 
       {/* Preview + Share Modal (rendered after submit succeeds) */}
       <Modal visible={previewVisible} animationType="slide" transparent>
-        <YStack
-          flex={1}
-          backgroundColor="rgba(0,0,0,0.85)"
-          justifyContent="center"
-          alignItems="center"
-          padding="$4"
-        >
+        <View style={styles.modalBackdrop}>
+          {/* ⚠️ ViewShot subtree must stay animation-free — capture reads
+              rendered pixels; a mid-animation frame = blank/translucent image. */}
           <ViewShot
             ref={viewShotRef}
             options={{ format: "png", quality: 0.92 }}
-            style={{ backgroundColor: Colors.background }}
+            style={{ backgroundColor: palette.background }}
           >
-            <YStack
-              width={340}
-              backgroundColor={Colors.background}
-              padding="$4"
-              borderRadius="$4"
-            >
-              <H3 color="white" marginBottom="$1">
-                📦 New Shipment
-              </H3>
-              <Text color={Colors.textGray} fontSize={12} marginBottom="$3">
-                Owner: {user?.name}
-              </Text>
+            <View style={styles.receipt}>
+              <View style={styles.receiptHeader}>
+                <Text style={styles.receiptTitle}>New Shipment</Text>
+                <Text style={styles.receiptSub}>Owner: {user?.name}</Text>
+              </View>
 
               {cartItems.map(({ product, qty, value }) => (
-                <XStack
-                  key={product._id}
-                  alignItems="center"
-                  gap="$3"
-                  marginBottom="$3"
-                  backgroundColor={Colors.card}
-                  borderRadius="$3"
-                  padding="$2"
-                >
+                <View key={product._id} style={styles.receiptRow}>
                   <RNImage
                     source={{
                       uri: product.photoUrl || "https://placehold.co/100",
                     }}
-                    style={{ width: 50, height: 50, borderRadius: 6 }}
+                    style={styles.receiptThumb}
                   />
-                  <YStack flex={1}>
-                    <Text color="white" fontSize={13} fontWeight="bold">
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.receiptProductName}>
                       {product.brand} - {product.name}
                     </Text>
-                    <Text color={Colors.textGray} fontSize={11}>
+                    <Text style={styles.receiptProductMeta}>
                       {qty} pcs · ₹{value}
                     </Text>
-                  </YStack>
-                </XStack>
+                  </View>
+                </View>
               ))}
 
-              <XStack
-                justifyContent="space-between"
-                marginTop="$2"
-                paddingTop="$3"
-                borderTopColor={Colors.cardBorder}
-                borderTopWidth={1}
-              >
-                <Text color={Colors.textGray}>Total: {totalItems} pcs</Text>
-                <Text color={Colors.accent} fontWeight="bold">
+              <View style={styles.receiptFooter}>
+                <Text style={styles.receiptTotalLabel}>
+                  Total: {totalItems} pcs
+                </Text>
+                <Text style={styles.receiptTotalValue}>
                   ₹ {estimatedPayout.toFixed(2)}
                 </Text>
-              </XStack>
-            </YStack>
+              </View>
+            </View>
           </ViewShot>
 
-          <YStack gap="$2" marginTop="$4" width={340}>
-            <Button
-              backgroundColor={copied ? Colors.success : Colors.card}
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-              height={46}
-              borderRadius="$4"
+          <View style={styles.modalActions}>
+            <PressableScale
+              hapticFeedback
               onPress={handleCopyDetails}
-              icon={
-                <Feather
-                  name={copied ? "check" : "copy"}
-                  size={18}
-                  color="white"
-                />
-              }
+              style={[styles.copyBtn, copied && styles.copyBtnDone]}
             >
-              <Text color="white" fontWeight="bold">
+              <Feather
+                name={copied ? "check" : "copy"}
+                size={17}
+                color={copied ? palette.success : palette.text}
+              />
+              <Text
+                style={[
+                  styles.copyBtnText,
+                  copied && { color: palette.success },
+                ]}
+              >
                 {copied ? "Copied!" : "Copy Details"}
               </Text>
-            </Button>
+            </PressableScale>
 
-            <Button
-              backgroundColor={Colors.primary}
-              height={46}
-              borderRadius="$4"
+            <PrimaryButton
+              label="Share Image"
+              icon="image"
+              loading={sharing}
               onPress={handleShareImage}
-              disabled={sharing}
-              icon={
-                !sharing ? (
-                  <Feather name="image" size={18} color="white" />
-                ) : undefined
-              }
-            >
-              {sharing ? (
-                <Spinner color="white" />
-              ) : (
-                <Text color="white" fontWeight="bold">
-                  Share Image
-                </Text>
-              )}
-            </Button>
+            />
 
-            <Text
-              color={Colors.textGray}
-              fontSize={11}
-              textAlign="center"
-              marginTop="$1"
-            >
+            <Text style={styles.tipText}>
               Tip: Copy Details first, then Share Image and paste as caption
             </Text>
 
-            <Button chromeless height={40} onPress={handleSkipShare}>
-              <Text color={Colors.textGray}>Skip</Text>
-            </Button>
-          </YStack>
-        </YStack>
+            <PressableScale
+              hapticFeedback
+              onPress={handleSkipShare}
+              style={styles.skipBtn}
+            >
+              <Text style={styles.skipText}>Skip</Text>
+            </PressableScale>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  headerPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  searchRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  searchWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 46,
+  },
+  filterBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBtnActive: {
+    backgroundColor: palette.primarySoft,
+    borderColor: palette.primary,
+  },
+  listMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  listMetaLabel: {
+    color: palette.textTertiary,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  selectedCount: {
+    color: palette.accent,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  skeletonWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  productCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    marginBottom: spacing.sm,
+  },
+  productCardSelected: {
+    backgroundColor: `${palette.primary}12`,
+    borderColor: palette.primary,
+    borderWidth: 1.5,
+  },
+  productRow: { flexDirection: "row", alignItems: "center" },
+  productImageWrap: {
+    width: 80,
+    height: 96,
+    backgroundColor: palette.surface,
+  },
+  selectedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(47, 128, 237, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  productContent: {
+    flex: 1,
+    padding: spacing.md,
+    justifyContent: "space-between",
+    minHeight: 96,
+  },
+  productTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  productName: { color: palette.text, fontWeight: "700", fontSize: 14 },
+  productSku: { color: palette.textSecondary, fontSize: 12, marginTop: 2 },
+  productPrice: { color: palette.accent, fontWeight: "700", fontSize: 14 },
+  productBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  stockText: { color: palette.textSecondary, fontSize: 11 },
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: palette.background,
+    borderRadius: radius.md,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  stepperActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  stepBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+    width: 34,
+    textAlign: "center",
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.lg,
+    borderTopColor: palette.border,
+    borderTopWidth: 1,
+  },
+  footerStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: spacing.md,
+  },
+  footerLabel: {
+    color: palette.textSecondary,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  footerPayout: {
+    color: palette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 3,
+    letterSpacing: -0.3,
+  },
+  footerItems: {
+    color: palette.text,
+    fontWeight: "700",
+    fontSize: 16,
+    marginTop: 3,
+  },
+  progressTrack: {
+    height: 6,
+    flexDirection: "row",
+    backgroundColor: palette.surfaceHighest,
+    borderRadius: 3,
+    marginBottom: spacing.lg,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: palette.primary,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  receipt: {
+    width: 340,
+    backgroundColor: palette.background,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+  },
+  receiptHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+  },
+  receiptTitle: {
+    color: palette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  receiptSub: {
+    color: palette.textSecondary,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  receiptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: spacing.sm,
+  },
+  receiptThumb: {
+    width: 50,
+    height: 50,
+    borderRadius: radius.sm,
+  },
+  receiptProductName: {
+    color: palette.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  receiptProductMeta: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  receiptFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopColor: palette.border,
+    borderTopWidth: 1,
+  },
+  receiptTotalLabel: { color: palette.textSecondary, fontSize: 13 },
+  receiptTotalValue: {
+    color: palette.accent,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalActions: { gap: spacing.sm, marginTop: spacing.lg, width: 340 },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  copyBtnDone: {
+    backgroundColor: "rgba(34, 197, 94, 0.12)",
+    borderColor: `${palette.success}55`,
+  },
+  copyBtnText: {
+    color: palette.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  tipText: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: spacing.xs,
+  },
+  skipBtn: {
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skipText: { color: palette.textSecondary, fontSize: 14, fontWeight: "600" },
+});

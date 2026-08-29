@@ -1,11 +1,9 @@
-import { useTheme } from "@/src/context/ThemeContext";
 import Constants from "expo-constants";
 import React from "react";
 import { Text, YStack, YStackProps } from "tamagui";
+import { palette } from "../src/theme/tokens";
 
 export const AppVersionDisplay = (props: YStackProps) => {
-  const { Colors } = useTheme();
-
   // 1. Read version from app.json manifest
   // Use expoConfig for Expo Go/Dev clients, and manifest for built apps if needed as fallback
   const version =
@@ -23,9 +21,9 @@ export const AppVersionDisplay = (props: YStackProps) => {
 
   return (
     <YStack alignItems="center" gap="$1" {...props}>
-      <Text color={Colors.primary} fontWeight="600" fontSize={12}>
+      <Text color={palette.primary} fontWeight="600" fontSize={12}>
         <Text
-          color={Colors.textGray}
+          color={palette.textSecondary}
           fontWeight="400"
           opacity={0.7}
           fontSize={11}
@@ -35,7 +33,7 @@ export const AppVersionDisplay = (props: YStackProps) => {
         Mayuresh Bailurkar
       </Text>
       <Text
-        color={Colors.textGray}
+        color={palette.textSecondary}
         fontSize={11}
         fontWeight="600"
         opacity={0.7}

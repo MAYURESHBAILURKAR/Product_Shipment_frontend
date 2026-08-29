@@ -2,24 +2,37 @@ import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { FlatList, RefreshControl, TouchableOpacity } from "react-native";
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Card, H3, Spinner, Text, XStack, YStack } from "tamagui";
+import {
+  EmptyState,
+  ListRow,
+  PressableScale,
+  SkeletonListRow,
+  StaggerItem,
+  StatusBadge,
+} from "../../src/components/ui";
+import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
-import { useTheme } from "../../src/context/ThemeContext"; // ✅ Import Theme
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export default function ShipmentHistoryScreen() {
   const { user } = useAuth();
-  const { Colors } = useTheme(); // ✅ Use Dynamic Colors
   const router = useRouter();
 
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // --- Fetch/sort logic preserved exactly ---
   const fetchHistory = async () => {
     try {
       if (!refreshing) setLoading(true);
@@ -47,171 +60,91 @@ export default function ShipmentHistoryScreen() {
     }, []),
   );
 
-  // Helper for Status Colors
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "received":
-        return Colors.success;
-      case "rejected":
-        return Colors.danger;
-      default:
-        return "#FFBB33"; // Warning/Yellow
-    }
-  };
-
-  const renderItem = ({ item }: any) => {
-    const statusColor = getStatusColor(item.status);
+  const renderItem = ({ item, index }: any) => {
     const isPending = item.status === "pending";
 
     return (
-      <Card
-        backgroundColor={Colors.card}
-        borderColor={Colors.cardBorder}
-        borderWidth={1}
-        padding="$4"
-        marginBottom="$3"
-        borderRadius="$4"
-        elevation={2}
-        pressStyle={{ scale: 0.98 }} // Add a little press effect
+      <ListRow
+        index={index}
         onPress={() =>
           router.push({
             pathname: "/shipment/[id]",
             params: { id: item._id },
           })
         }
-      >
-        {/* Top Row: Date & Status */}
-        <XStack
-          justifyContent="space-between"
-          alignItems="center"
-          marginBottom="$3"
-        >
-          <XStack gap="$2" alignItems="center">
-            <Feather name="calendar" size={12} color={Colors.textGray} />
-            <Text color={Colors.textGray} fontSize={12} fontWeight="600">
+        leading={
+          <View style={styles.dateBadge}>
+            <Feather name="calendar" size={13} color={palette.textTertiary} />
+            <Text style={styles.dateText}>
               {new Date(item.shippedAt).toLocaleDateString()}
             </Text>
-          </XStack>
-
-          <YStack
-            backgroundColor={`${statusColor}20`} // Transparent background
-            paddingHorizontal="$2"
-            paddingVertical="$1"
-            borderRadius="$4"
-            borderColor={`${statusColor}50`}
-            borderWidth={1}
-          >
-            <Text
-              color={statusColor}
-              fontSize={10}
-              fontWeight="bold"
-              textTransform="uppercase"
-            >
-              {item.status}
-            </Text>
-          </YStack>
-        </XStack>
-
-        {/* Middle Row: Content */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <XStack gap="$3" alignItems="center">
-            <YStack
-              width={40}
-              height={40}
-              borderRadius="$10"
-              backgroundColor={Colors.background}
-              justifyContent="center"
-              alignItems="center"
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-            >
-              <Feather name="package" size={20} color={Colors.primary} />
-            </YStack>
-            <YStack>
-              <H3 fontSize={16} color="white" fontWeight="bold">
-                {item.totalQuantity} Units
-              </H3>
-              <Text color={Colors.textGray} fontSize={12}>
-                {item.items.length} Product Types
-              </Text>
-            </YStack>
-          </XStack>
-
-          {/* Action Column */}
-          {isPending ? (
-            <Button
-              size="$2"
-              backgroundColor={Colors.primary}
-              icon={<Feather name="edit-2" size={14} color="white" />}
-              onPress={() =>
-                router.push({
-                  pathname: "/shipment-edit",
-                  params: { shipmentId: item._id },
-                })
-              }
-            >
-              <Text color="white" fontSize={12} fontWeight="bold">
-                Edit
-              </Text>
-            </Button>
-          ) : (
-            <YStack alignItems="flex-end">
-              <Text color={Colors.textGray} fontSize={10}>
-                TOTAL PAYOUT
-              </Text>
-              <Text color={Colors.accent} fontSize={16} fontWeight="bold">
-                ₹ {item.totalAmount}
-              </Text>
-            </YStack>
-          )}
-        </XStack>
-      </Card>
+          </View>
+        }
+        title={`${item.totalQuantity} Units`}
+        subtitle={`${item.items.length} Product Types`}
+        trailing={
+          <View style={styles.trailingWrap}>
+            <StatusBadge status={item.status} />
+            {isPending ? (
+              <PressableScale
+                style={styles.editBtn}
+                onPress={() =>
+                  router.push({
+                    pathname: "/shipment-edit",
+                    params: { shipmentId: item._id },
+                  })
+                }
+              >
+                <Feather name="edit-2" size={13} color="#FFFFFF" />
+                <Text style={styles.editBtnText}>Edit</Text>
+              </PressableScale>
+            ) : (
+              <View style={styles.payoutCol}>
+                <Text style={styles.payoutLabel}>TOTAL PAYOUT</Text>
+                <Text style={styles.payoutValue}>₹ {item.totalAmount}</Text>
+              </View>
+            )}
+          </View>
+        }
+        showChevron={false}
+      />
     );
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <YStack paddingHorizontal="$4" flex={1} paddingTop="$2">
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
+      <View style={styles.flex}>
         {/* Header */}
-        <XStack
-          justifyContent="space-between"
-          alignItems="center"
-          marginBottom="$4"
-        >
-          <YStack>
-            <Text
-              color={Colors.textGray}
-              fontSize={10}
-              letterSpacing={1}
-              fontWeight="bold"
-            >
-              OVERVIEW
-            </Text>
-            <H3 color="white" fontWeight="bold">
-              Shipment History
-            </H3>
-          </YStack>
-
-          {/* Refresh Button (Optional visual cue) */}
-          <TouchableOpacity
+        <StaggerItem index={0} style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.overviewLabel}>OVERVIEW</Text>
+            <Text style={styles.heading}>Shipment History</Text>
+          </View>
+          <PressableScale
+            hapticFeedback
             onPress={() => {
               setRefreshing(true);
               fetchHistory();
             }}
+            style={styles.refreshBtn}
           >
-            <Feather name="refresh-cw" size={18} color={Colors.textGray} />
-          </TouchableOpacity>
-        </XStack>
+            <Feather name="refresh-cw" size={17} color={palette.textSecondary} />
+          </PressableScale>
+        </StaggerItem>
 
         {/* List */}
-        {loading && !refreshing ? (
-          <Spinner size="large" color={Colors.primary} marginTop="$10" />
+        {loading && shipments.length === 0 ? (
+          <View style={styles.skeletonWrap}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonListRow key={i} />
+            ))}
+          </View>
         ) : (
           <FlatList
             data={shipments}
             keyExtractor={(item: any) => item._id}
             renderItem={renderItem}
-            contentContainerStyle={{ paddingBottom: 100 }} // Space for FAB
+            contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -220,32 +153,120 @@ export default function ShipmentHistoryScreen() {
                   setRefreshing(true);
                   fetchHistory();
                 }}
-                tintColor={Colors.primary}
+                tintColor={palette.primary}
+                colors={[palette.primary]}
               />
             }
             ListEmptyComponent={
-              <YStack alignItems="center" marginTop="$10" gap="$2">
-                <Feather name="inbox" size={40} color={Colors.cardBorder} />
-                <Text color={Colors.textGray}>No shipments found.</Text>
-              </YStack>
+              !loading ? (
+                <EmptyState
+                  icon="inbox"
+                  title="No shipments found"
+                  message="Your shipment history will appear here once you create one."
+                  actionLabel="New Shipment"
+                  onAction={() => router.push("/shipment-new")}
+                />
+              ) : null
             }
           />
         )}
 
-        {/* Floating Action Button (FAB) */}
-        <Button
-          position="absolute"
-          bottom={90} // Adjust based on Tab Bar height
-          right={20}
-          size="$6"
-          circular
-          backgroundColor={Colors.primary}
-          elevation={10}
-          pressStyle={{ scale: 0.95 }}
+        {/* FAB */}
+        <PressableScale
           onPress={() => router.push("/shipment-new")}
-          icon={<Feather name="plus" size={28} color="white" />}
-        />
-      </YStack>
+          hapticFeedback
+          style={styles.fab}
+        >
+          <Feather name="plus" size={27} color="#FFFFFF" />
+        </PressableScale>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  overviewLabel: {
+    color: palette.textSecondary,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontWeight: "700",
+  },
+  heading: {
+    color: palette.text,
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+  },
+  refreshBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skeletonWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  dateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: palette.surfaceHighest,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  dateText: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  trailingWrap: { alignItems: "flex-end", gap: 8 },
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: palette.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+  },
+  editBtnText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  payoutCol: { alignItems: "flex-end" },
+  payoutLabel: {
+    color: palette.textTertiary,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  payoutValue: {
+    color: palette.accent,
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 1,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 95,
+    right: 20,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: palette.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow(6),
+  },
+});

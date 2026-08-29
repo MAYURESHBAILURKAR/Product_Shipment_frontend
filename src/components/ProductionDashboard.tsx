@@ -1,41 +1,36 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   Dimensions,
   RefreshControl,
   ScrollView,
-  TouchableOpacity,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Avatar,
-  Button,
-  Card,
-  H2,
-  H3,
-  Separator,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
+import { Avatar } from "tamagui";
 import { useAuth } from "../context/AuthContext";
+import { palette, radius, spacing } from "../theme/tokens";
+import {
+  PressableScale,
+  PrimaryButton,
+  SectionHeader,
+  StaggerItem,
+  StatCard,
+} from "./ui";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Nexus Color Palette
-const Colors = {
-  background: "#0B0E14",
-  card: "#151A23",
-  cardBorder: "#232936",
-  primary: "#2F80ED",
-  textGray: "#9CA3AF",
-  success: "#00C851",
-  accent: "#4CC9F0",
-};
+const ACTIONS = [
+  { label: "New Ship", icon: "plus-circle", route: "/shipment-new" },
+  { label: "Inventory", icon: "package", route: "/(tabs)/products" },
+  { label: "History", icon: "list", route: "/shipment-tracker" },
+  { label: "Reports", icon: "bar-chart-2", route: "/(tabs)/shipments" },
+] as const;
 
 export default function ProductionDashboard() {
   const { user } = useAuth();
@@ -48,6 +43,7 @@ export default function ProductionDashboard() {
   });
   const [loading, setLoading] = useState(false);
 
+  // --- Fetch math preserved exactly ---
   const fetchStats = async () => {
     try {
       setLoading(true);
@@ -86,288 +82,253 @@ export default function ProductionDashboard() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={loading}
             onRefresh={fetchStats}
-            tintColor={Colors.primary}
+            tintColor={palette.primary}
+            colors={[palette.primary]}
           />
         }
       >
-        <YStack padding="$4" gap="$5">
-          {/* 1. Modern Header */}
-          <XStack justifyContent="space-between" alignItems="center">
-            <XStack gap="$3" alignItems="center">
-              <Avatar
-                circular
-                size="$5"
+        <View style={styles.wrap}>
+          {/* 1. Header */}
+          <StaggerItem index={0}>
+            <View style={styles.headerRow}>
+              <PressableScale
                 onPress={() => router.push("/profile")}
+                style={styles.headerLeft}
               >
-                <Avatar.Image
-                  src={`https://ui-avatars.com/api/?name=${user?.name}&background=2F80ED&color=fff`}
-                />
-                <Avatar.Fallback backgroundColor={Colors.primary} />
-              </Avatar>
-              <YStack>
-                <Text
-                  color={Colors.textGray}
-                  fontSize={12}
-                  textTransform="uppercase"
-                  letterSpacing={1}
-                >
-                  Good Morning,
-                </Text>
-                <H2 color="white" fontWeight="bold">
-                  {user?.name?.split(" ")[0]}
-                </H2>
-              </YStack>
-            </XStack>
-
-            <TouchableOpacity onPress={() => router.push("/(tabs)/profile")}>
-              <YStack
-                backgroundColor={Colors.card}
-                padding="$2"
-                borderRadius="$10"
-                borderColor={Colors.cardBorder}
-                borderWidth={1}
-              >
-                <Feather name="bell" size={20} color="white" />
-              </YStack>
-            </TouchableOpacity>
-          </XStack>
-
-          {/* 2. Visual Stats Cards (Gradient) */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 12 }}
-          >
-            <LinearGradient
-              colors={["#2F80ED", "#56CCF2"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: 20,
-                padding: 20,
-                width: SCREEN_WIDTH * 0.45,
-                height: 150,
-                justifyContent: "space-between",
-              }}
-            >
-              <YStack
-                backgroundColor="rgba(255,255,255,0.2)"
-                alignSelf="flex-start"
-                padding="$2"
-                borderRadius="$3"
-              >
-                <Feather name="box" size={20} color="white" />
-              </YStack>
-              <YStack>
-                <Text
-                  color="rgba(255,255,255,0.8)"
-                  fontSize={12}
-                  fontWeight="600"
-                >
-                  IN STOCK
-                </Text>
-                <H2 color="white" fontWeight="800">
-                  {stats.stock}
-                </H2>
-              </YStack>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={["#00b09b", "#96c93d"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: 20,
-                padding: 20,
-                width: SCREEN_WIDTH * 0.42,
-                height: 150,
-                justifyContent: "space-between",
-              }}
-            >
-              <YStack
-                backgroundColor="rgba(255,255,255,0.2)"
-                alignSelf="flex-start"
-                padding="$2"
-                borderRadius="$3"
-              >
-                <Feather name="trending-up" size={20} color="white" />
-              </YStack>
-              <YStack>
-                <Text
-                  color="rgba(255,255,255,0.8)"
-                  fontSize={12}
-                  fontWeight="600"
-                >
-                  EARNINGS
-                </Text>
-                <H2 color="white" fontWeight="800">
-                  ₹{stats.earnings}
-                </H2>
-              </YStack>
-            </LinearGradient>
-          </ScrollView>
-
-          {/* 3. Action Grid (Shortcut Buttons) */}
-          <XStack justifyContent="space-between" gap="$3">
-            {[
-              {
-                label: "New Ship",
-                icon: "plus-circle",
-                route: "/shipment-new",
-              },
-              {
-                label: "Inventory",
-                icon: "package",
-                route: "/(tabs)/products",
-              },
-              { label: "History", icon: "list", route: "/shipment-tracker" },
-              {
-                label: "Reports",
-                icon: "bar-chart-2",
-                route: "/(tabs)/shipments",
-              },
-            ].map((item, idx) => (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => router.push(item.route as any)}
-                style={{ flex: 1, alignItems: "center" }}
-              >
-                <YStack
-                  backgroundColor={Colors.card}
-                  padding="$3"
-                  borderRadius="$5"
-                  borderColor={Colors.cardBorder}
-                  borderWidth={1}
-                  alignItems="center"
-                  width="100%"
-                  gap="$2"
-                >
-                  <Feather
-                    name={item.icon as any}
-                    size={22}
-                    color={Colors.primary}
+                <Avatar circular size="$5">
+                  <Avatar.Image
+                    src={`https://ui-avatars.com/api/?name=${user?.name}&background=2F80ED&color=fff`}
                   />
-                  <Text color="white" fontSize={10} fontWeight="600">
-                    {item.label}
-                  </Text>
-                </YStack>
-              </TouchableOpacity>
-            ))}
-          </XStack>
+                  <Avatar.Fallback backgroundColor={palette.primary} />
+                </Avatar>
+                <View>
+                  <Text style={styles.greeting}>GOOD MORNING,</Text>
+                  <Text style={styles.name}>{user?.name?.split(" ")[0]}</Text>
+                </View>
+              </PressableScale>
 
-          {/* 4. Shipment Summary Section */}
-          <YStack gap="$4">
-            <XStack justifyContent="space-between" alignItems="center">
-              <H3 color="white">Recent Activity</H3>
-              <TouchableOpacity
-                onPress={() => router.push("/shipment-tracker")}
+              <PressableScale onPress={() => router.push("/(tabs)/profile")}>
+                <View style={styles.bellWrap}>
+                  <Feather name="bell" size={19} color={palette.text} />
+                </View>
+              </PressableScale>
+            </View>
+          </StaggerItem>
+
+          {/* 2. Stat Cards */}
+          <View style={{ marginBottom: spacing.lg }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12 }}
+            >
+              <StatCard
+                icon="box"
+                label="IN STOCK"
+                value={stats.stock}
+                preset="primary"
+                index={1}
+                width={SCREEN_WIDTH * 0.45}
+              />
+              <StatCard
+                icon="trending-up"
+                label="EARNINGS"
+                value={stats.earnings}
+                prefix="₹"
+                preset="success"
+                index={2}
+                width={SCREEN_WIDTH * 0.45}
+              />
+            </ScrollView>
+          </View>
+
+          {/* 3. Action Grid */}
+          <StaggerItem index={3} style={styles.actionGrid}>
+            {ACTIONS.map((item) => (
+              <PressableScale
+                key={item.label}
+                style={styles.actionTile}
+                onPress={() => router.push(item.route as any)}
               >
-                <Text color={Colors.primary} fontWeight="bold">
-                  View All
+                <Feather
+                  name={item.icon as any}
+                  size={21}
+                  color={palette.primaryBright}
+                />
+                <Text style={styles.actionLabel}>{item.label}</Text>
+              </PressableScale>
+            ))}
+          </StaggerItem>
+
+          {/* 4. Shipment Summary */}
+          <StaggerItem index={4}>
+            <SectionHeader
+              label="Recent Activity"
+              actionLabel="View All"
+              onAction={() => router.push("/shipment-tracker")}
+            />
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <View style={[styles.summaryIcon, styles.summaryIconBlue]}>
+                  <Feather
+                    name="truck"
+                    size={17}
+                    color={palette.primaryBright}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.summaryTitle}>Total Shipments</Text>
+                  <Text style={styles.summarySub}>Historical volume</Text>
+                </View>
+                <Text style={styles.summaryValue}>{stats.shipmentCount}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <View style={[styles.summaryIcon, styles.summaryIconCyan]}>
+                  <Feather
+                    name="dollar-sign"
+                    size={17}
+                    color={palette.accent}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.summaryTitle}>Payout Rate</Text>
+                  <Text style={styles.summarySub}>Standard unit price</Text>
+                </View>
+                <Text style={[styles.summaryValue, { color: palette.accent }]}>
+                  ₹ {user?.priceAllotted}
                 </Text>
-              </TouchableOpacity>
-            </XStack>
+              </View>
+            </View>
+          </StaggerItem>
 
-            <Card
-              backgroundColor={Colors.card}
-              borderColor={Colors.cardBorder}
-              borderWidth={1}
-              borderRadius="$6"
-              overflow="hidden"
-            >
-              <YStack padding="$4" gap="$3">
-                <XStack justifyContent="space-between" alignItems="center">
-                  <XStack gap="$3" alignItems="center">
-                    <YStack
-                      backgroundColor="rgba(47, 128, 237, 0.1)"
-                      padding="$2"
-                      borderRadius="$3"
-                    >
-                      <Feather name="truck" size={18} color={Colors.primary} />
-                    </YStack>
-                    <YStack>
-                      <Text color="white" fontWeight="600">
-                        Total Shipments
-                      </Text>
-                      <Text color={Colors.textGray} fontSize={12}>
-                        Historical volume
-                      </Text>
-                    </YStack>
-                  </XStack>
-                  <H3 color="white">{stats.shipmentCount}</H3>
-                </XStack>
-                <Separator borderColor={Colors.cardBorder} />
-                <XStack justifyContent="space-between" alignItems="center">
-                  <XStack gap="$3" alignItems="center">
-                    <YStack
-                      backgroundColor="rgba(76, 201, 240, 0.1)"
-                      padding="$2"
-                      borderRadius="$3"
-                    >
-                      <Feather
-                        name="dollar-sign"
-                        size={18}
-                        color={Colors.accent}
-                      />
-                    </YStack>
-                    <YStack>
-                      <Text color="white" fontWeight="600">
-                        Payout Rate
-                      </Text>
-                      <Text color={Colors.textGray} fontSize={12}>
-                        Standard unit price
-                      </Text>
-                    </YStack>
-                  </XStack>
-                  <Text color={Colors.accent} fontWeight="bold">
-                    ₹ {user?.priceAllotted}
-                  </Text>
-                </XStack>
-              </YStack>
-            </Card>
-          </YStack>
-
-          {/* 5. Production Action Banner */}
-          <Card
-            backgroundColor={Colors.card}
-            borderColor={Colors.primary}
-            borderWidth={1}
-            borderRadius="$6"
-            padding="$5"
-            gap="$3"
-          >
-            <H3 color="white">Inventory Ready?</H3>
-            <Text color={Colors.textGray} fontSize={14}>
-              You currently have{" "}
-              <Text color="white" fontWeight="bold">
-                {stats.stock} items
-              </Text>{" "}
-              processed. Create a shipment to move them to the warehouse and
-              update your earnings.
-            </Text>
-            <Button
-              backgroundColor={Colors.primary}
-              // ✅ Move the icon component to iconAfter instead of using a boolean
-              iconAfter={<Feather name="arrow-right" size={18} color="white" />}
-              onPress={() => router.push("/shipment-new")}
-              borderRadius="$4"
-              marginTop="$2"
-              pressStyle={{ opacity: 0.8 }} // Added for better touch feedback
-            >
-              <Text color="white" fontWeight="bold">
-                Start Shipment Process
+          {/* 5. Production CTA Banner */}
+          <StaggerItem index={5}>
+            <View style={styles.ctaCard}>
+              <Text style={styles.ctaTitle}>Inventory Ready?</Text>
+              <Text style={styles.ctaBody}>
+                You currently have{" "}
+                <Text style={styles.ctaHighlight}>{stats.stock} items</Text>{" "}
+                processed. Create a shipment to move them to the warehouse and
+                update your earnings.
               </Text>
-            </Button>
-          </Card>
-        </YStack>
+              <PrimaryButton
+                label="Start Shipment Process"
+                icon="arrow-right"
+                size="lg"
+                onPress={() => router.push("/shipment-new")}
+              />
+            </View>
+          </StaggerItem>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: { padding: spacing.lg, gap: spacing.xl },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "center",
+  },
+  greeting: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  name: {
+    color: palette.text,
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+  },
+  bellWrap: {
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.sm,
+    borderRadius: radius.pill,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  actionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  actionTile: {
+    flex: 1,
+    backgroundColor: palette.surfaceElevated,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderColor: palette.border,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  actionLabel: {
+    color: palette.text,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  summaryCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  summaryIcon: {
+    padding: spacing.sm,
+    borderRadius: radius.md,
+  },
+  summaryIconBlue: { backgroundColor: palette.primarySoft },
+  summaryIconCyan: { backgroundColor: "rgba(76, 201, 240, 0.12)" },
+  summaryTitle: { color: palette.text, fontWeight: "600", fontSize: 14 },
+  summarySub: { color: palette.textSecondary, fontSize: 12, marginTop: 2 },
+  summaryValue: { color: palette.text, fontSize: 17, fontWeight: "700" },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: palette.border,
+  },
+  ctaCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.primary,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  ctaTitle: {
+    color: palette.text,
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  ctaBody: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  ctaHighlight: { color: palette.text, fontWeight: "700" },
+});
