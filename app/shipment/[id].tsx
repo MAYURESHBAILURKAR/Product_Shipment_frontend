@@ -16,6 +16,7 @@ import {
   PressableScale,
   ScreenHeader,
   SectionHeader,
+  ShareShipmentModal,
   StaggerItem,
   StatusBadge,
 } from "../../src/components/ui";
@@ -32,6 +33,7 @@ export default function ShipmentDetailsScreen() {
 
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -85,16 +87,26 @@ export default function ShipmentDetailsScreen() {
             title="Details"
             onBack={() => router.back()}
             right={
-              isPending ? (
-                <PressableEditBtn
-                  onPress={() =>
-                    router.push({
-                      pathname: "/shipment-edit",
-                      params: { shipmentId: id },
-                    })
-                  }
-                />
-              ) : undefined
+              <View style={styles.headerActions}>
+                <PressableScale
+                  hapticFeedback
+                  onPress={() => setShareOpen(true)}
+                  style={editStyles.btn}
+                >
+                  <Feather name="share-2" size={15} color={palette.primaryBright} />
+                  <Text style={editStyles.label}>Share</Text>
+                </PressableScale>
+                {isPending && (
+                  <PressableEditBtn
+                    onPress={() =>
+                      router.push({
+                        pathname: "/shipment-edit",
+                        params: { shipmentId: id },
+                      })
+                    }
+                  />
+                )}
+              </View>
             }
           />
         </View>
@@ -221,6 +233,23 @@ export default function ShipmentDetailsScreen() {
           </StaggerItem>
         </View>
       </ScrollView>
+
+      {/* Share receipt (same flow as post-create) */}
+      <ShareShipmentModal
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        heading={`Shipment #${typeof id === "string" ? id.slice(-4).toUpperCase() : ""}`}
+        ownerName={shipment.sender?.name || user?.name}
+        items={shipment.items.map((item: any) => ({
+          name: item.product?.name || "Unknown Item",
+          brand: item.product?.brand || "N/A",
+          photoUrl: item.product?.photoUrl,
+          quantity: item.quantity,
+          value: item.quantity * (user?.priceAllotted || 0),
+        }))}
+        totalItems={shipment.totalQuantity}
+        totalValue={shipment.totalAmount}
+      />
     </SafeAreaView>
   );
 }
@@ -253,6 +282,7 @@ const editStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   loader: { flex: 1, backgroundColor: palette.background },
   headerPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   wrap: { paddingHorizontal: spacing.lg, gap: spacing.lg, marginTop: spacing.sm },
   statusTop: {
     flexDirection: "row",

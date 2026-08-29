@@ -3,6 +3,8 @@ import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -14,6 +16,7 @@ import {
   EmptyState,
   ListRow,
   PressableScale,
+  ShareShipmentModal,
   SkeletonListRow,
   StaggerItem,
   StatusBadge,
@@ -31,6 +34,27 @@ export default function ShipmentHistoryScreen() {
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Share modal state
+  const [shareTarget, setShareTarget] = useState<any>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+
+  // The /myshipments list returns bare product IDs; fetch the full shipment
+  // (populated) before opening the share receipt.
+  const openShare = async (shipmentId: string) => {
+    try {
+      setShareLoading(true);
+      const { data } = await axios.get(`${API_URL}/shipments/${shipmentId}`, {
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      setShareTarget(data);
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Could not load shipment for sharing.");
+    } finally {
+      setShareLoading(false);
+    }
+  };
 
   // --- Fetch/sort logic preserved exactly ---
   const fetchHistory = async () => {
@@ -85,25 +109,35 @@ export default function ShipmentHistoryScreen() {
         trailing={
           <View style={styles.trailingWrap}>
             <StatusBadge status={item.status} />
-            {isPending ? (
+            <View style={styles.trailingActions}>
+              {isPending ? (
+                <PressableScale
+                  style={styles.editBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/shipment-edit",
+                      params: { shipmentId: item._id },
+                    })
+                  }
+                >
+                  <Feather name="edit-2" size={13} color="#FFFFFF" />
+                  <Text style={styles.editBtnText}>Edit</Text>
+                </PressableScale>
+              ) : (
+                <View style={styles.payoutCol}>
+                  <Text style={styles.payoutLabel}>TOTAL PAYOUT</Text>
+                  <Text style={styles.payoutValue}>₹ {item.totalAmount}</Text>
+                </View>
+              )}
+              {/* Share */}
               <PressableScale
-                style={styles.editBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: "/shipment-edit",
-                    params: { shipmentId: item._id },
-                  })
-                }
+                hapticFeedback
+                style={styles.shareBtn}
+                onPress={() => openShare(item._id)}
               >
-                <Feather name="edit-2" size={13} color="#FFFFFF" />
-                <Text style={styles.editBtnText}>Edit</Text>
+                <Feather name="share-2" size={14} color={palette.primaryBright} />
               </PressableScale>
-            ) : (
-              <View style={styles.payoutCol}>
-                <Text style={styles.payoutLabel}>TOTAL PAYOUT</Text>
-                <Text style={styles.payoutValue}>₹ {item.totalAmount}</Text>
-              </View>
-            )}
+            </View>
           </View>
         }
         showChevron={false}
@@ -180,6 +214,33 @@ export default function ShipmentHistoryScreen() {
           <Feather name="plus" size={27} color="#FFFFFF" />
         </PressableScale>
       </View>
+
+      {/* Share receipt (same flow as post-create) */}
+      {shareLoading ? (
+        <View style={styles.shareLoaderWrap}>
+          <ActivityIndicator size="large" color={palette.primary} />
+        </View>
+      ) : (
+        <ShareShipmentModal
+          visible={shareTarget != null}
+          onClose={() => setShareTarget(null)}
+          heading={
+            shareTarget
+              ? `Shipment #${shareTarget._id.slice(-4).toUpperCase()}`
+              : ""
+          }
+          ownerName={user?.name}
+          items={(shareTarget?.items || []).map((item: any) => ({
+            name: item.product?.name || "Unknown",
+            brand: item.product?.brand,
+            photoUrl: item.product?.photoUrl,
+            quantity: item.quantity,
+            value: item.quantity * (user?.priceAllotted || 0),
+          }))}
+          totalItems={shareTarget?.totalQuantity ?? 0}
+          totalValue={shareTarget?.totalAmount ?? 0}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -234,6 +295,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   trailingWrap: { alignItems: "flex-end", gap: 8 },
+  trailingActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  shareBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: `${palette.primary}33`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   editBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -268,5 +344,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...shadow(6),
+  },
+  shareLoaderWrap: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
