@@ -5,6 +5,7 @@ export { GradientCard } from "./GradientCard";
 export { ListRow } from "./ListRow";
 export { PressableScale } from "./PressableScale";
 export { PrimaryButton } from "./PrimaryButton";
+export { ProductFormSheet } from "./ProductFormSheet";
 export { Screen, } from "./Screen";
 export { ScreenHeader } from "./ScreenHeader";
 export { SectionHeader } from "./SectionHeader";

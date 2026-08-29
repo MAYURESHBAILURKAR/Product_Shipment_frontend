@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -13,15 +13,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Input,
-  Sheet,
-  Text as TText,
-} from "tamagui";
+import { Input } from "tamagui";
 import {
   EmptyState,
   PressableScale,
-  PrimaryButton,
+  ProductFormSheet,
   StaggerItem,
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
@@ -34,6 +30,7 @@ const CARD_WIDTH = (SCREEN_WIDTH - 32 - 12) / 2; // 2 columns with padding + gap
 
 export default function ProductsScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,12 +39,6 @@ export default function ProductsScreen() {
   // Sheet State
   const [openSheet, setOpenSheet] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
-
-  // Form State
-  const [newName, setNewName] = useState("");
-  const [newBrand, setNewBrand] = useState("");
-  const [newImage, setNewImage] = useState<any>(null);
-  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -77,71 +68,25 @@ export default function ProductsScreen() {
     );
   }, [products, searchQuery]);
 
-  // --- Image/form logic preserved exactly ---
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-    if (!result.canceled) setNewImage(result.assets[0]);
-  };
-
   const openCreateMode = () => {
     setEditingProduct(null);
-    setNewName("");
-    setNewBrand("");
-    setNewImage(null);
     setOpenSheet(true);
   };
 
   const openEditMode = (product: any) => {
     setEditingProduct(product);
-    setNewName(product.name);
-    setNewBrand(product.brand);
-    setNewImage({ uri: product.photoUrl });
     setOpenSheet(true);
   };
 
-  const handleSaveProduct = async () => {
-    if (!newName || !newBrand) {
-      Alert.alert("Error", "Name and Brand required");
-      return;
-    }
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("name", newName);
-    formData.append("brand", newBrand);
-
-    if (newImage && !newImage.uri.includes("cloudinary")) {
-      // @ts-ignore
-      formData.append("image", {
-        uri: newImage.uri,
-        type: "image/jpeg",
-        name: "product.jpg",
-      });
-    }
-
-    try {
-      const config = {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${user?.token}`,
-        },
-      };
-      if (editingProduct)
-        await axios.put(`${API_URL}/${editingProduct._id}`, formData, config);
-      else await axios.post(API_URL, formData, config);
-      setOpenSheet(false);
-      fetchProducts();
-    } catch (error) {
-      Alert.alert("Error", "Operation failed");
-    } finally {
-      setUploading(false);
-    }
+  // Card tap → View Product screen (product data passed as JSON param)
+  const openViewMode = (product: any) => {
+    router.push({
+      pathname: "/product/[id]",
+      params: { id: product._id, data: JSON.stringify(product) },
+    });
   };
 
+  // --- Delete with confirm popup (preserved flow + alert) ---
   const handleDelete = (id: string) => {
     const performDelete = async () => {
       try {
@@ -154,7 +99,7 @@ export default function ProductsScreen() {
       }
     };
     Alert.alert("Delete", "Are you sure?", [
-      { text: "Cancel" },
+      { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: performDelete },
     ]);
   };
@@ -166,7 +111,7 @@ export default function ProductsScreen() {
     return (
       <StaggerItem index={index % 8} travelY={10} style={{ width: CARD_WIDTH }}>
         <PressableScale
-          onPress={() => openEditMode(item)}
+          onPress={() => openViewMode(item)}
           hapticFeedback
           style={styles.card}
         >
@@ -308,63 +253,13 @@ export default function ProductsScreen() {
           <Feather name="plus" size={30} color="#FFFFFF" />
         </PressableScale>
 
-        {/* Add/Edit Sheet */}
-        <Sheet
-          modal
+        {/* Add/Edit Sheet (shared form) */}
+        <ProductFormSheet
           open={openSheet}
           onOpenChange={setOpenSheet}
-          snapPoints={[80]}
-          dismissOnSnapToBottom
-        >
-          <Sheet.Overlay />
-          <Sheet.Frame padding="$4" gap="$4" backgroundColor={palette.surfaceElevated}>
-            <Sheet.Handle />
-            <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center">
-              {editingProduct ? "Edit Product" : "New Product"}
-            </TText>
-
-            <View style={{ alignItems: "center", marginBottom: 8 }}>
-              <PressableScale onPress={pickImage} hapticFeedback>
-                <View style={styles.imagePicker}>
-                  {newImage ? (
-                    <RNImage
-                      source={{ uri: newImage.uri }}
-                      style={{ width: "100%", height: "100%" }}
-                    />
-                  ) : (
-                    <Feather name="camera" size={28} color={palette.textTertiary} />
-                  )}
-                </View>
-                <Text style={styles.changeImage}>Change Image</Text>
-              </PressableScale>
-            </View>
-
-            <Input
-              placeholder="Product Name"
-              value={newName}
-              onChangeText={setNewName}
-              backgroundColor={palette.surfaceHighest}
-              color={palette.text}
-              placeholderTextColor="$gray10"
-              borderColor={palette.border}
-            />
-            <Input
-              placeholder="Brand"
-              value={newBrand}
-              onChangeText={setNewBrand}
-              backgroundColor={palette.surfaceHighest}
-              color={palette.text}
-              placeholderTextColor="$gray10"
-              borderColor={palette.border}
-            />
-
-            <PrimaryButton
-              label={editingProduct ? "Update Product" : "Create Product"}
-              loading={uploading}
-              onPress={handleSaveProduct}
-            />
-          </Sheet.Frame>
-        </Sheet>
+          product={editingProduct}
+          onSaved={fetchProducts}
+        />
       </View>
     </SafeAreaView>
   );
@@ -507,23 +402,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     ...shadow(6),
-  },
-  imagePicker: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: palette.surfaceHighest,
-    justifyContent: "center",
-    alignItems: "center",
-    borderColor: palette.border,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  changeImage: {
-    color: palette.primaryBright,
-    fontSize: 12,
-    marginTop: 8,
-    textAlign: "center",
-    fontWeight: "600",
   },
 });
