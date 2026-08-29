@@ -5,7 +5,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   FlatList,
   StyleSheet,
@@ -21,6 +20,7 @@ import {
   ScreenHeader,
   SectionHeader,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
@@ -32,6 +32,7 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 export default function AdminReportsScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState("monthly");
@@ -61,7 +62,7 @@ export default function AdminReportsScreen() {
   // --- PDF GENERATION LOGIC (preserved exactly) ---
   const generatePDF = async () => {
     if (reportData.length === 0) {
-      Alert.alert("No Data", "Nothing to export.");
+      showToast({ message: "Nothing to export", kind: "info" });
       return;
     }
     try {
@@ -113,7 +114,7 @@ export default function AdminReportsScreen() {
         mimeType: "application/pdf",
       });
     } catch (error) {
-      Alert.alert("Error", "Could not generate PDF");
+      showToast({ message: "Could not generate PDF", kind: "error" });
     }
   };
 

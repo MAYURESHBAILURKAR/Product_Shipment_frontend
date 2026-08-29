@@ -17,6 +17,7 @@ import {
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
 import config from "../tamagui.config";
 import { palette } from "../src/theme/tokens";
+import { ToastProvider } from "../src/components/ui";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -118,15 +119,16 @@ export default function RootLayout() {
           <Theme name="dark">
             <SafeAreaProvider>
               <StatusBar style="light" />
-
-              {/* ✅ LOGIC: Show Awake Screen First */}
-              {!isServerReady ? (
-                <ServerAwakeScreen
-                  onServerReady={() => setServerReady(true)}
-                />
-              ) : (
-                <RootNavigation />
-              )}
+              <ToastProvider>
+                {/* ✅ LOGIC: Show Awake Screen First */}
+                {!isServerReady ? (
+                  <ServerAwakeScreen
+                    onServerReady={() => setServerReady(true)}
+                  />
+                ) : (
+                  <RootNavigation />
+                )}
+              </ToastProvider>
             </SafeAreaProvider>
           </Theme>
         </PortalProvider>

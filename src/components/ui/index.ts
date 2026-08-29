@@ -1,4 +1,6 @@
 export { AnimatedNumber } from "./AnimatedNumber";
+export { AppDialog } from "./AppDialog";
+export type { DialogButton } from "./AppDialog";
 export { EmptyState } from "./EmptyState";
 export { GlassCard } from "./GlassCard";
 export { GradientCard } from "./GradientCard";
@@ -13,5 +15,6 @@ export { ScreenHeader } from "./ScreenHeader";
 export { SectionHeader } from "./SectionHeader";
 export { Skeleton, SkeletonCard, SkeletonListRow } from "./Skeleton";
 export { StaggerItem } from "./StaggerItem";
+export { ToastProvider, useToast } from "./Toast";
 export { StatCard } from "./StatCard";
 export { StatusBadge } from "./StatusBadge";

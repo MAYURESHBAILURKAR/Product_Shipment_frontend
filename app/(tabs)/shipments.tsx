@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -20,6 +19,7 @@ import {
   SkeletonListRow,
   StaggerItem,
   StatusBadge,
+  useToast,
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
@@ -30,6 +30,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 export default function ShipmentHistoryScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -50,7 +51,7 @@ export default function ShipmentHistoryScreen() {
       setShareTarget(data);
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Could not load shipment for sharing.");
+      showToast({ message: "Could not load shipment for sharing.", kind: "error" });
     } finally {
       setShareLoading(false);
     }

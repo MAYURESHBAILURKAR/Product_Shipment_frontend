@@ -3,7 +3,6 @@ import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
   Image as RNImage,
   Modal,
   ScrollView,
@@ -13,7 +12,7 @@ import {
 } from "react-native";
 import ViewShot from "react-native-view-shot";
 import { palette, radius, spacing } from "../../theme/tokens";
-import { PressableScale, PrimaryButton } from "./index";
+import { PressableScale, PrimaryButton, useToast } from "./index";
 
 export interface ShareShipmentItem {
   name: string;
@@ -49,6 +48,7 @@ export function ShareShipmentModal({
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
+  const { showToast } = useToast();
 
   const handleShareImage = async () => {
     try {
@@ -59,7 +59,10 @@ export function ShareShipmentModal({
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert("Sharing not available", "This device can't share files.");
+        showToast({
+          message: "Sharing not available on this device.",
+          kind: "error",
+        });
         return;
       }
 
@@ -70,7 +73,10 @@ export function ShareShipmentModal({
       });
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to generate or share the shipment image.");
+      showToast({
+        message: "Failed to generate or share the shipment image.",
+        kind: "error",
+      });
     } finally {
       setSharing(false);
       onClose();
@@ -100,7 +106,7 @@ ${itemsList}`;
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to copy shipment details.");
+      showToast({ message: "Failed to copy shipment details.", kind: "error" });
     }
   };
 

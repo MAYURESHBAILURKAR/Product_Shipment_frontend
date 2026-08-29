@@ -3,7 +3,6 @@ import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Image as RNImage,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
   ShareShipmentModal,
   StaggerItem,
   StatusBadge,
+  useToast,
 } from "../../src/components/ui";
 import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
@@ -30,6 +30,7 @@ export default function ShipmentDetailsScreen() {
   const { id } = useLocalSearchParams(); // Get the ID from the route
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +52,7 @@ export default function ShipmentDetailsScreen() {
       setShipment(data);
     } catch (error) {
       console.error("Fetch Error:", error);
-      Alert.alert("Error", "Could not load shipment details.");
+      showToast({ message: "Could not load shipment details.", kind: "error" });
       router.back();
     } finally {
       setLoading(false);

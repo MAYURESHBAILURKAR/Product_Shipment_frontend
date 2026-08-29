@@ -3,7 +3,6 @@ import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   FlatList,
   Image as RNImage,
@@ -15,10 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "tamagui";
 import {
+  AppDialog,
   EmptyState,
   PressableScale,
   ProductFormSheet,
   StaggerItem,
+  useToast,
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
@@ -31,6 +32,7 @@ const CARD_WIDTH = (SCREEN_WIDTH - 32 - 12) / 2; // 2 columns with padding + gap
 export default function ProductsScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,6 +41,9 @@ export default function ProductsScreen() {
   // Sheet State
   const [openSheet, setOpenSheet] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+
+  // Delete confirm dialog state
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -86,22 +91,22 @@ export default function ProductsScreen() {
     });
   };
 
-  // --- Delete with confirm popup (preserved flow + alert) ---
-  const handleDelete = (id: string) => {
-    const performDelete = async () => {
-      try {
-        await axios.delete(`${API_URL}/${id}`, {
-          headers: { Authorization: `Bearer ${user?.token}` },
-        });
-        fetchProducts();
-      } catch (e) {
-        Alert.alert("Error", "Could not delete");
-      }
-    };
-    Alert.alert("Delete", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: performDelete },
-    ]);
+  // --- Delete: opens the confirm dialog; actual delete performed on confirm ---
+  const handleDelete = (product: any) => setDeleteTarget(product);
+
+  const performDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget._id;
+    setDeleteTarget(null);
+    try {
+      await axios.delete(`${API_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      showToast({ message: "Product deleted", kind: "success" });
+      fetchProducts();
+    } catch (e) {
+      showToast({ message: "Could not delete", kind: "error" });
+    }
   };
 
   // --- Grid card ---
@@ -156,7 +161,7 @@ export default function ProductsScreen() {
                   <Feather name="edit-2" size={14} color={palette.textSecondary} />
                 </PressableScale>
                 <PressableScale
-                  onPress={() => handleDelete(item._id)}
+                  onPress={() => handleDelete(item)}
                   style={styles.actionIcon}
                 >
                   <Feather name="trash-2" size={14} color={palette.danger} />
@@ -259,6 +264,23 @@ export default function ProductsScreen() {
           onOpenChange={setOpenSheet}
           product={editingProduct}
           onSaved={fetchProducts}
+        />
+
+        {/* Delete confirm */}
+        <AppDialog
+          visible={deleteTarget != null}
+          title="Delete Product"
+          message={`Delete "${deleteTarget?.name}"? This can't be undone.`}
+          kind="danger"
+          icon="trash-2"
+          buttons={[
+            {
+              label: "Cancel",
+              style: "cancel",
+              onPress: () => setDeleteTarget(null),
+            },
+            { label: "Delete", style: "danger", onPress: performDelete },
+          ]}
         />
       </View>
     </SafeAreaView>

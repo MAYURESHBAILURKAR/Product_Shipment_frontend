@@ -3,7 +3,6 @@ import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   FlatList,
   StyleSheet,
@@ -30,6 +29,7 @@ import {
   SkeletonListRow,
   StaggerItem,
   StatCard,
+  useToast,
 } from "./ui";
 import { palette, radius, shadow, spacing } from "../theme/tokens";
 import { useAuth } from "../context/AuthContext";
@@ -41,6 +41,7 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   // Data State
   const [users, setUsers] = useState<any[]>([]);
@@ -155,7 +156,10 @@ export default function AdminDashboard() {
 
   const handleSaveUser = async () => {
     if (!name || !email || !price) {
-      Alert.alert("Error", "Name, Email, and Price Rate are required.");
+      showToast({
+        message: "Name, Email, and Price Rate are required.",
+        kind: "error",
+      });
       return;
     }
     setUploading(true);
@@ -174,22 +178,25 @@ export default function AdminDashboard() {
         await axios.put(`${API_URL}/users/${editingUser._id}`, payload, {
           headers: { Authorization: `Bearer ${user?.token}` },
         });
-        Alert.alert("Success", "User Updated");
+        showToast({ message: "User Updated", kind: "success" });
       } else {
         if (!password) {
-          Alert.alert("Error", "Password is required for new users");
+          showToast({ message: "Password is required for new users", kind: "error" });
           setUploading(false);
           return;
         }
         await axios.post(`${API_URL}/users`, payload, {
           headers: { Authorization: `Bearer ${user?.token}` },
         });
-        Alert.alert("Success", "User Created");
+        showToast({ message: "User Created", kind: "success" });
       }
       setOpenSheet(false);
       fetchUsers();
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Operation failed");
+      showToast({
+        message: error.response?.data?.message || "Operation failed",
+        kind: "error",
+      });
     } finally {
       setUploading(false);
     }

@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   PressableScale,
   PrimaryButton,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { Input } from "tamagui";
@@ -27,6 +27,7 @@ const API_URL =
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,7 @@ export default function ForgotPasswordScreen() {
   // --- Reset logic preserved exactly ---
   const handleReset = async () => {
     if (!email || !newPassword) {
-      Alert.alert("Error", "Please fill in all fields");
+      showToast({ message: "Please fill in all fields", kind: "error" });
       return;
     }
 
@@ -45,11 +46,17 @@ export default function ForgotPasswordScreen() {
         newPassword,
       });
 
-      Alert.alert("Success", "Password has been reset! Please login.");
+      showToast({
+        message: "Password has been reset! Please login.",
+        kind: "success",
+      });
       router.back(); // Go back to Login
     } catch (error: any) {
       console.error(error);
-      Alert.alert("Error", error.response?.data?.message || "Reset failed");
+      showToast({
+        message: error.response?.data?.message || "Reset failed",
+        kind: "error",
+      });
     } finally {
       setLoading(false);
     }

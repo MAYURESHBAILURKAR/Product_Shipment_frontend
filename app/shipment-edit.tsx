@@ -3,7 +3,6 @@ import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Image as RNImage,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
   ScreenHeader,
   SkeletonListRow,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
@@ -28,6 +28,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export default function EditShipmentScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { shipmentId } = useLocalSearchParams();
 
   const [products, setProducts] = useState<any[]>([]);
@@ -65,7 +66,7 @@ export default function EditShipmentScreen() {
         setCart(initialCart);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load shipment data");
+      showToast({ message: "Failed to load shipment data", kind: "error" });
       router.back();
     } finally {
       setLoading(false);
@@ -124,10 +125,13 @@ export default function EditShipmentScreen() {
         { headers: { Authorization: `Bearer ${user?.token}` } },
       );
 
-      Alert.alert("Success", "Shipment Updated!");
+      showToast({ message: "Shipment Updated!", kind: "success" });
       router.back();
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Update failed");
+      showToast({
+        message: error.response?.data?.message || "Update failed",
+        kind: "error",
+      });
     } finally {
       setSubmitting(false);
     }

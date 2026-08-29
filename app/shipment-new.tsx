@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   FlatList,
   Image as RNImage,
   Modal,
@@ -28,6 +27,7 @@ import {
   ScreenHeader,
   SkeletonListRow,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
@@ -41,6 +41,7 @@ const ADMIN_PHONE = process.env.EXPO_PUBLIC_ADMIN_PHONE;
 export default function NewShipmentScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [products, setProducts] = useState<any[]>([]);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
@@ -169,7 +170,7 @@ Please approve this in the Admin App.`;
   // --- Submit preserved exactly ---
   const handleSubmit = async () => {
     if (totalItems === 0) {
-      Alert.alert("Error", "Please add at least one item.");
+      showToast({ message: "Please add at least one item.", kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -191,10 +192,10 @@ Please approve this in the Admin App.`;
       setPreviewVisible(true);
     } catch (error: any) {
       setSubmitting(false);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || "Failed to send shipment",
-      );
+      showToast({
+        message: error.response?.data?.message || "Failed to send shipment",
+        kind: "error",
+      });
     }
   };
 
@@ -209,7 +210,10 @@ Please approve this in the Admin App.`;
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert("Sharing not available", "This device can't share files.");
+        showToast({
+          message: "Sharing not available on this device",
+          kind: "error",
+        });
         return;
       }
 
@@ -220,7 +224,10 @@ Please approve this in the Admin App.`;
       });
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to generate or share the shipment image.");
+      showToast({
+        message: "Failed to generate or share the shipment image.",
+        kind: "error",
+      });
     } finally {
       setSharing(false);
       setPreviewVisible(false);
@@ -240,7 +247,7 @@ Please approve this in the Admin App.`;
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to copy shipment details.");
+      showToast({ message: "Failed to copy shipment details.", kind: "error" });
     }
   };
 

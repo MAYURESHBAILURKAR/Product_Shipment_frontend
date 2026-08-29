@@ -6,7 +6,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
   PressableScale,
   PrimaryButton,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { Input } from "tamagui";
@@ -31,6 +31,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const { showToast } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +41,7 @@ export default function LoginScreen() {
   // --- Login logic preserved exactly ---
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      showToast({ message: "Please fill in all fields", kind: "error" });
       return;
     }
 
@@ -50,10 +51,10 @@ export default function LoginScreen() {
       await login(data);
     } catch (error: any) {
       console.error(error);
-      Alert.alert(
-        "Login Failed",
-        error.response?.data?.message || "Check connection",
-      );
+      showToast({
+        message: error.response?.data?.message || "Check connection",
+        kind: "error",
+      });
       setLoading(false);
     }
   };

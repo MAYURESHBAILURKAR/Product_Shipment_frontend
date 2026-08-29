@@ -3,7 +3,6 @@ import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import {
   ScreenHeader,
   SkeletonListRow,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
@@ -27,6 +27,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 export default function AdminShipmentsScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -69,7 +70,7 @@ export default function AdminShipmentsScreen() {
         prev.map((s: any) => (s._id === id ? { ...s, ...updates } : s)),
       );
     } catch (error) {
-      Alert.alert("Error", "Update failed");
+      showToast({ message: "Update failed", kind: "error" });
     }
   };
 

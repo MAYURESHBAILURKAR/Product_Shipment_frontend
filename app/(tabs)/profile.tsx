@@ -3,9 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import React, { ComponentProps, useState } from "react";
 import {
-  Alert,
   Linking,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,10 +18,12 @@ import {
   Text as TText,
 } from "tamagui";
 import {
+  AppDialog,
   PressableScale,
   PrimaryButton,
   SectionHeader,
   StaggerItem,
+  useToast,
 } from "../../src/components/ui";
 import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
@@ -35,8 +35,10 @@ type FeatherName = ComponentProps<typeof Feather>["name"];
 
 export default function ProfileScreen() {
   const { logout, user } = useAuth();
+  const { showToast } = useToast();
   const [openSheet, setOpenSheet] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [logoutDialog, setLogoutDialog] = useState(false);
 
   // Edit State
   const [name, setName] = useState<any>(user?.name || "");
@@ -58,10 +60,13 @@ export default function ProfileScreen() {
           headers: { Authorization: `Bearer ${user?.token}` },
         },
       );
-      Alert.alert("Success", "Profile Updated");
+      showToast({ message: "Profile Updated", kind: "success" });
       setOpenSheet(false);
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Update failed");
+      showToast({
+        message: error.response?.data?.message || "Update failed",
+        kind: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -201,20 +206,7 @@ export default function ProfileScreen() {
                 icon="log-out"
                 label="Log Out"
                 isDestructive
-                onPress={() => {
-                  if (Platform.OS === "web") {
-                    if (confirm("Log Out, Are you sure?")) logout();
-                  } else {
-                    Alert.alert("Log Out", "Are you sure?", [
-                      { text: "Cancel" },
-                      {
-                        text: "Log Out",
-                        style: "destructive",
-                        onPress: logout,
-                      },
-                    ]);
-                  }
-                }}
+                onPress={() => setLogoutDialog(true)}
               />
             </View>
           </StaggerItem>
@@ -287,6 +279,23 @@ export default function ProfileScreen() {
           />
         </Sheet.Frame>
       </Sheet>
+
+      {/* Logout confirm */}
+      <AppDialog
+        visible={logoutDialog}
+        title="Log Out"
+        message="Are you sure you want to log out?"
+        kind="danger"
+        icon="log-out"
+        buttons={[
+          {
+            label: "Cancel",
+            style: "cancel",
+            onPress: () => setLogoutDialog(false),
+          },
+          { label: "Log Out", style: "danger", onPress: logout },
+        ]}
+      />
     </SafeAreaView>
   );
 }

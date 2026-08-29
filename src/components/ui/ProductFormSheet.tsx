@@ -3,7 +3,6 @@ import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Image as RNImage,
   StyleSheet,
   Text,
@@ -12,7 +11,7 @@ import {
 import { Input, Sheet, Text as TText } from "tamagui";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
-import { PressableScale, PrimaryButton } from "./index";
+import { AppDialog, PressableScale, PrimaryButton, useToast } from "./index";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
 
@@ -33,6 +32,7 @@ export function ProductFormSheet({
   onSaved,
 }: ProductFormSheetProps) {
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [name, setName] = useState(product?.name || "");
   const [brand, setBrand] = useState(product?.brand || "");
@@ -40,6 +40,7 @@ export function ProductFormSheet({
     product ? { uri: product.photoUrl } : null,
   );
   const [uploading, setUploading] = useState(false);
+  const [confirmUpdate, setConfirmUpdate] = useState(false);
 
   // Re-seed the form each time the sheet opens (it stays mounted).
   useEffect(() => {
@@ -62,20 +63,13 @@ export function ProductFormSheet({
 
   const handleSave = async () => {
     if (!name || !brand) {
-      Alert.alert("Error", "Name and Brand required");
+      showToast({ message: "Name and Brand required", kind: "error" });
       return;
     }
 
     // Confirm before update (create goes straight through)
     if (product) {
-      Alert.alert(
-        "Update Product",
-        `Save changes to "${product.name}"?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Update", onPress: () => performSave() },
-        ],
-      );
+      setConfirmUpdate(true);
       return;
     }
     await performSave();
@@ -106,9 +100,13 @@ export function ProductFormSheet({
       if (product) await axios.put(`${API_URL}/${product._id}`, formData, config);
       else await axios.post(API_URL, formData, config);
       onOpenChange(false);
+      showToast({
+        message: product ? "Product updated" : "Product created",
+        kind: "success",
+      });
       onSaved();
     } catch (error) {
-      Alert.alert("Error", "Operation failed");
+      showToast({ message: "Operation failed", kind: "error" });
     } finally {
       setUploading(false);
     }
@@ -170,6 +168,30 @@ export function ProductFormSheet({
           onPress={handleSave}
         />
       </Sheet.Frame>
+
+      {/* Update confirm */}
+      <AppDialog
+        visible={confirmUpdate}
+        title="Update Product"
+        message={`Save changes to "${product?.name}"?`}
+        kind="default"
+        icon="save"
+        buttons={[
+          {
+            label: "Cancel",
+            style: "cancel",
+            onPress: () => setConfirmUpdate(false),
+          },
+          {
+            label: "Update",
+            style: "confirm",
+            onPress: () => {
+              setConfirmUpdate(false);
+              performSave();
+            },
+          },
+        ]}
+      />
     </Sheet>
   );
 }

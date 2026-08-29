@@ -3,7 +3,6 @@ import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Image as RNImage,
   ScrollView,
   StyleSheet,
@@ -12,10 +11,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  AppDialog,
   PressableScale,
   ProductFormSheet,
   ScreenHeader,
   StaggerItem,
+  useToast,
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
@@ -26,37 +27,26 @@ export default function ViewProductScreen() {
   const { id, data } = useLocalSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const product: any = JSON.parse(
     typeof data === "string" ? data : "{}",
   );
 
   const [editSheet, setEditSheet] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState(false);
 
-  const handleDelete = () => {
-    Alert.alert(
-      "Delete Product",
-      `Delete "${product?.name}"? This can't be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await axios.delete(`${API_URL}/${id}`, {
-                headers: { Authorization: `Bearer ${user?.token}` },
-              });
-              Alert.alert("Deleted", "Product has been removed.", [
-                { text: "OK", onPress: () => router.back() },
-              ]);
-            } catch (e) {
-              Alert.alert("Error", "Could not delete");
-            }
-          },
-        },
-      ],
-    );
+  const performDelete = async () => {
+    setDeleteDialog(false);
+    try {
+      await axios.delete(`${API_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      showToast({ message: "Product has been removed.", kind: "success" });
+      router.back();
+    } catch (e) {
+      showToast({ message: "Could not delete", kind: "error" });
+    }
   };
 
   return (
@@ -186,7 +176,7 @@ export default function ViewProductScreen() {
 
               <PressableScale
                 hapticFeedback
-                onPress={handleDelete}
+                onPress={() => setDeleteDialog(true)}
                 style={styles.deleteAction}
               >
                 <Feather name="trash-2" size={16} color={palette.danger} />
@@ -202,10 +192,24 @@ export default function ViewProductScreen() {
         open={editSheet}
         onOpenChange={setEditSheet}
         product={product}
-        onSaved={() => {
-          Alert.alert("Success", "Product updated");
-          router.back();
-        }}
+        onSaved={() => router.back()}
+      />
+
+      {/* Delete confirm */}
+      <AppDialog
+        visible={deleteDialog}
+        title="Delete Product"
+        message={`Delete "${product?.name}"? This can't be undone.`}
+        kind="danger"
+        icon="trash-2"
+        buttons={[
+          {
+            label: "Cancel",
+            style: "cancel",
+            onPress: () => setDeleteDialog(false),
+          },
+          { label: "Delete", style: "danger", onPress: performDelete },
+        ]}
       />
     </SafeAreaView>
   );
