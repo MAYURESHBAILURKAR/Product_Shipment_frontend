@@ -101,7 +101,16 @@ export function AppDialog({
   }));
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={() => {
+        const cancel = buttons.find((b) => b.style === "cancel") ?? buttons[0];
+        cancel?.onPress();
+      }}
+    >
       <View style={styles.root}>
         <Animated.View style={[styles.backdrop, backdropStyle]} />
         <Animated.View style={[styles.card, cardStyle]}>

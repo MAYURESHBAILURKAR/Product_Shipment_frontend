@@ -11,7 +11,7 @@ import {
 import { Input, Sheet, Text as TText } from "tamagui";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
-import { AppDialog, PressableScale, PrimaryButton, useToast } from "./index";
+import { AppDialog, PressableScale, PrimaryButton, useDismissOnBack, useToast } from "./index";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
 
@@ -50,6 +50,8 @@ export function ProductFormSheet({
       setImage(product ? { uri: product.photoUrl } : null);
     }
   }, [open, product]);
+
+  useDismissOnBack(open, () => onOpenChange(false));
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({

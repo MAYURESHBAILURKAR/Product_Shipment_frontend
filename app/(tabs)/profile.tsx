@@ -25,6 +25,7 @@ import {
   RupeeIcon,
   SectionHeader,
   StaggerItem,
+  useDismissOnBack,
   useToast,
 } from "../../src/components/ui";
 import { palette, radius, spacing } from "../../src/theme/tokens";
@@ -57,6 +58,8 @@ export default function ProfileScreen() {
   useEffect(() => {
     setHapticsOn(isHapticsEnabled());
   }, []);
+
+  useDismissOnBack(openSheet, () => setOpenSheet(false));
 
   // --- Update logic preserved exactly ---
   const handleUpdate = async () => {

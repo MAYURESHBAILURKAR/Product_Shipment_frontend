@@ -30,6 +30,7 @@ import {
   SkeletonListRow,
   StaggerItem,
   StatCard,
+  useDismissOnBack,
   useToast,
 } from "./ui";
 import { palette, radius, shadow, spacing } from "../theme/tokens";
@@ -114,6 +115,8 @@ export default function AdminDashboard() {
   // Needs Attention counters.
   const [allShipments, setAllShipments] = useState<any[]>([]);
   const [chartMode, setChartMode] = useState<"W" | "M">("W");
+
+  useDismissOnBack(openSheet, () => setOpenSheet(false));
 
   // --- Fetch logic preserved exactly ---
   const fetchUsers = async () => {

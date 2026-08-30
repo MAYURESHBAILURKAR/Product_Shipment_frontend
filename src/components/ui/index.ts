@@ -21,5 +21,6 @@ export { SectionHeader } from "./SectionHeader";
 export { Skeleton, SkeletonCard, SkeletonListRow } from "./Skeleton";
 export { StaggerItem } from "./StaggerItem";
 export { ToastProvider, useToast } from "./Toast";
+export { useDismissOnBack } from "./useDismissOnBack";
 export { StatCard } from "./StatCard";
 export { StatusBadge } from "./StatusBadge";
