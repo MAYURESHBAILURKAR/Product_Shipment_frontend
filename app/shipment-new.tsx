@@ -291,6 +291,9 @@ Please approve this in the Admin App.`;
               <View style={styles.productTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.productName}>{item.name}</Text>
+                  {item.brand ? (
+                    <Text style={styles.productBrand}>{item.brand}</Text>
+                  ) : null}
                   <Text style={styles.productSku}>
                     SKU: {item._id.slice(-4).toUpperCase()}
                   </Text>
@@ -639,6 +642,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   productName: { color: palette.text, fontWeight: "700", fontSize: 14 },
+  productBrand: {
+    color: palette.primaryBright,
+    fontSize: 11.5,
+    fontWeight: "600",
+    marginTop: 2,
+  },
   productSku: { color: palette.textSecondary, fontSize: 12, marginTop: 2 },
   productPrice: { color: palette.accent, fontWeight: "700", fontSize: 14 },
   productBottom: {

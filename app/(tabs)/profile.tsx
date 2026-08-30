@@ -1,7 +1,8 @@
 import { AppVersionDisplay } from "@/components/AppVersionDisplay";
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
-import React, { ComponentProps, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { ComponentProps, useEffect, useState } from "react";
 import {
   Linking,
   ScrollView,
@@ -21,12 +22,14 @@ import {
   AppDialog,
   PressableScale,
   PrimaryButton,
+  RupeeIcon,
   SectionHeader,
   StaggerItem,
   useToast,
 } from "../../src/components/ui";
 import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
+import { isHapticsEnabled, setHapticsEnabled } from "../../src/utils/haptics";
 
 // ⚠️ REPLACE IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -36,6 +39,7 @@ type FeatherName = ComponentProps<typeof Feather>["name"];
 export default function ProfileScreen() {
   const { logout, user } = useAuth();
   const { showToast } = useToast();
+  const router = useRouter();
   const [openSheet, setOpenSheet] = useState(false);
   const [loading, setLoading] = useState(false);
   const [logoutDialog, setLogoutDialog] = useState(false);
@@ -48,6 +52,11 @@ export default function ProfileScreen() {
 
   // Settings State
   const [notifications, setNotifications] = useState(true);
+  const [hapticsOn, setHapticsOn] = useState(true);
+
+  useEffect(() => {
+    setHapticsOn(isHapticsEnabled());
+  }, []);
 
   // --- Update logic preserved exactly ---
   const handleUpdate = async () => {
@@ -74,12 +83,14 @@ export default function ProfileScreen() {
 
   const MenuItem = ({
     icon,
+    rupee = false,
     label,
     value,
     onPress,
     isDestructive = false,
   }: {
     icon: FeatherName;
+    rupee?: boolean;
     label: string;
     value?: string;
     onPress: () => void;
@@ -93,11 +104,18 @@ export default function ProfileScreen() {
             isDestructive && styles.menuIconDanger,
           ]}
         >
-          <Feather
-            name={icon}
-            size={17}
-            color={isDestructive ? palette.danger : palette.primaryBright}
-          />
+          {rupee ? (
+            <RupeeIcon
+              size={17}
+              color={isDestructive ? palette.danger : palette.primaryBright}
+            />
+          ) : (
+            <Feather
+              name={icon}
+              size={17}
+              color={isDestructive ? palette.danger : palette.primaryBright}
+            />
+          )}
         </View>
         <Text
           style={[
@@ -164,6 +182,18 @@ export default function ProfileScreen() {
                 value={user?.mobile || "Not set"}
                 onPress={() => setOpenSheet(true)}
               />
+              {user?.role !== "admin" && (
+                <>
+                  <View style={styles.groupDivider} />
+                  <MenuItem
+                    icon="activity"
+                    rupee
+                    label="My Earnings"
+                    value={`₹ ${user?.priceAllotted || 0}/unit`}
+                    onPress={() => router.push("/my-earnings")}
+                  />
+                </>
+              )}
             </View>
           </StaggerItem>
 
@@ -185,6 +215,26 @@ export default function ProfileScreen() {
                   backgroundColor={
                     notifications ? palette.primary : palette.border
                   }
+                >
+                  <Switch.Thumb backgroundColor="#FFFFFF" />
+                </Switch>
+              </View>
+              <View style={styles.groupDivider} />
+              <View style={styles.prefRow}>
+                <View style={styles.menuLeft}>
+                  <View style={styles.menuIcon}>
+                    <Feather name="activity" size={17} color={palette.primaryBright} />
+                  </View>
+                  <Text style={styles.menuLabel}>Haptic Feedback</Text>
+                </View>
+                <Switch
+                  size="$2"
+                  checked={hapticsOn}
+                  onCheckedChange={(next: boolean) => {
+                    setHapticsOn(next);
+                    setHapticsEnabled(next);
+                  }}
+                  backgroundColor={hapticsOn ? palette.primary : palette.border}
                 >
                   <Switch.Thumb backgroundColor="#FFFFFF" />
                 </Switch>

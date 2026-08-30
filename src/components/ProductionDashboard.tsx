@@ -17,6 +17,7 @@ import { palette, radius, spacing } from "../theme/tokens";
 import {
   PressableScale,
   PrimaryButton,
+  RupeeIcon,
   SectionHeader,
   StaggerItem,
   StatCard,
@@ -26,11 +27,17 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const ACTIONS = [
-  { label: "New Ship", icon: "plus-circle", route: "/shipment-new" },
-  { label: "Inventory", icon: "package", route: "/(tabs)/products" },
-  { label: "History", icon: "list", route: "/shipment-tracker" },
-  { label: "Reports", icon: "bar-chart-2", route: "/(tabs)/shipments" },
+  { label: "New Ship", icon: "plus-circle", route: "/shipment-new", rupee: false },
+  { label: "Inventory", icon: "package", route: "/(tabs)/products", rupee: false },
+  { label: "Earnings", icon: "currency-rupee", route: "/my-earnings", rupee: true },
+  { label: "History", icon: "list", route: "/shipment-tracker", rupee: false },
 ] as const;
+
+const greetingForHour = (hour: number) => {
+  if (hour < 12) return "GOOD MORNING,";
+  if (hour < 17) return "GOOD AFTERNOON,";
+  return "GOOD EVENING,";
+};
 
 export default function ProductionDashboard() {
   const { user } = useAuth();
@@ -110,7 +117,9 @@ export default function ProductionDashboard() {
                   <Avatar.Fallback backgroundColor={palette.primary} />
                 </Avatar>
                 <View>
-                  <Text style={styles.greeting}>GOOD MORNING,</Text>
+                  <Text style={styles.greeting}>
+                    {greetingForHour(new Date().getHours())}
+                  </Text>
                   <Text style={styles.name}>{user?.name?.split(" ")[0]}</Text>
                 </View>
               </PressableScale>
@@ -146,6 +155,7 @@ export default function ProductionDashboard() {
                 preset="success"
                 index={2}
                 width={SCREEN_WIDTH * 0.45}
+                onPress={() => router.push("/my-earnings")}
               />
             </ScrollView>
           </View>
@@ -158,11 +168,15 @@ export default function ProductionDashboard() {
                 style={styles.actionTile}
                 onPress={() => router.push(item.route as any)}
               >
-                <Feather
-                  name={item.icon as any}
-                  size={21}
-                  color={palette.primaryBright}
-                />
+                {item.rupee ? (
+                  <RupeeIcon size={21} color={palette.primaryBright} />
+                ) : (
+                  <Feather
+                    name={item.icon as any}
+                    size={21}
+                    color={palette.primaryBright}
+                  />
+                )}
                 <Text style={styles.actionLabel}>{item.label}</Text>
               </PressableScale>
             ))}
@@ -193,11 +207,7 @@ export default function ProductionDashboard() {
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
                 <View style={[styles.summaryIcon, styles.summaryIconCyan]}>
-                  <Feather
-                    name="dollar-sign"
-                    size={17}
-                    color={palette.accent}
-                  />
+                  <RupeeIcon size={17} color={palette.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.summaryTitle}>Payout Rate</Text>

@@ -1,32 +1,86 @@
 import { Feather } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  DateRange,
+  DateRangeSheet,
   EmptyState,
+  ExportSheet,
+  ExportFormat,
   PressableScale,
   ScreenHeader,
   SkeletonListRow,
   StaggerItem,
+  useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import {
+  buildStatementHtml,
+  copyText,
+  sharePdf,
+  statementToCsv,
+  StatementRow,
+} from "../src/utils/shipmentExport";
 
 // ⚠️ REPLACE IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
+type SortMode = "date-desc" | "date-asc" | "value-desc" | "value-asc" | "qty-desc";
+
+const SORT_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: "date-desc", label: "Newest first" },
+  { key: "date-asc", label: "Oldest first" },
+  { key: "value-desc", label: "Highest value" },
+  { key: "value-asc", label: "Lowest value" },
+  { key: "qty-desc", label: "Most items" },
+];
+
+const prettyDate = (key: string) =>
+  new Date(`${key}T00:00:00`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+const prettyRange = (range: DateRange) =>
+  range.startDate === range.endDate
+    ? prettyDate(range.startDate)
+    : `${prettyDate(range.startDate)} → ${prettyDate(range.endDate)}`;
+
+// Human label of the active filters for the export sheet subtitle.
+const describePeriod = (
+  timeFilter: string,
+  dateRange: DateRange | null,
+): string => {
+  if (timeFilter === "custom" && dateRange) return prettyRange(dateRange);
+  switch (timeFilter) {
+    case "week":
+      return "Last 7 days";
+    case "month":
+      return "This month";
+    case "year":
+      return "This year";
+    default:
+      return "All time";
+  }
+};
+
 export default function ShipmentTrackerScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [allShipments, setAllShipments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -36,8 +90,14 @@ export default function ShipmentTrackerScreen() {
   const [timeFilter, setTimeFilter] = useState("month");
   const [statusFilter, setStatusFilter] = useState("All"); // All, Pending, Received
   const [selectedUser, setSelectedUser] = useState("all");
-  const [customDate, setCustomDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [showDateSheet, setShowDateSheet] = useState(false);
+
+  // Search & Sort State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("date-desc");
+  const [showSortSheet, setShowSortSheet] = useState(false);
+  const [showExportSheet, setShowExportSheet] = useState(false);
 
   // --- Fetch logic preserved exactly ---
   const fetchData = async () => {
@@ -99,8 +159,13 @@ export default function ShipmentTrackerScreen() {
     data = data.filter((item) => {
       const itemDate = new Date(item.shippedAt);
       switch (timeFilter) {
-        case "day":
-          return itemDate.toDateString() === customDate.toDateString();
+        case "custom":
+          if (!dateRange) return true;
+          // Inclusive range: start of startDate → end of endDate
+          return (
+            itemDate >= new Date(`${dateRange.startDate}T00:00:00`) &&
+            itemDate <= new Date(`${dateRange.endDate}T23:59:59.999`)
+          );
         case "week":
           const oneWeekAgo = new Date();
           oneWeekAgo.setDate(now.getDate() - 7);
@@ -116,8 +181,48 @@ export default function ShipmentTrackerScreen() {
           return true;
       }
     });
-    return data;
-  }, [allShipments, timeFilter, selectedUser, customDate, statusFilter]);
+
+    // 4. Search (shipment id / user name / status)
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      data = data.filter(
+        (item) =>
+          item._id.toLowerCase().includes(q) ||
+          (item.sender?.name || "").toLowerCase().includes(q) ||
+          item.status.toLowerCase().includes(q),
+      );
+    }
+
+    // 5. Sort
+    const sorted = [...data].sort((a: any, b: any) => {
+      switch (sortMode) {
+        case "date-asc":
+          return (
+            new Date(a.shippedAt).getTime() - new Date(b.shippedAt).getTime()
+          );
+        case "value-desc":
+          return b.totalAmount - a.totalAmount;
+        case "value-asc":
+          return a.totalAmount - b.totalAmount;
+        case "qty-desc":
+          return b.totalQuantity - a.totalQuantity;
+        case "date-desc":
+        default:
+          return (
+            new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime()
+          );
+      }
+    });
+    return sorted;
+  }, [
+    allShipments,
+    timeFilter,
+    selectedUser,
+    dateRange,
+    statusFilter,
+    searchQuery,
+    sortMode,
+  ]);
 
   const statusMeta = (status: string) => {
     switch (status) {
@@ -127,6 +232,60 @@ export default function ShipmentTrackerScreen() {
         return { color: palette.warning, icon: "clock" as const };
       default:
         return { color: palette.accent, icon: "package" as const };
+    }
+  };
+
+  // Export the currently filtered list (respects search/sort too).
+  const handleExport = async (format: ExportFormat) => {
+    setShowExportSheet(false);
+    if (filteredData.length === 0) return;
+    const showUser = user?.role === "admin";
+    const rows: StatementRow[] = filteredData.map((item: any) => ({
+      date: new Date(item.shippedAt).toLocaleDateString("en-GB"),
+      ref: `#${item._id.slice(-4).toUpperCase()}`,
+      user: item.sender?.name || user?.name || "",
+      status: item.status,
+      items: item.totalQuantity,
+      amount: item.totalAmount,
+    }));
+    const periodLabel = describePeriod(timeFilter, dateRange);
+
+    try {
+      if (format === "pdf") {
+        const ok = await sharePdf(
+          buildStatementHtml({ rows, periodLabel, showUser, ownerName: user?.name }),
+          "Share shipment statement",
+        );
+        if (!ok) throw new Error("unavailable");
+      } else if (format === "csv") {
+        const ok = await copyText(statementToCsv(rows, showUser));
+        showToast(
+          ok
+            ? { message: "CSV copied to clipboard — paste into any spreadsheet.", kind: "success" }
+            : { message: "Copy failed.", kind: "error" },
+        );
+      } else {
+        const totalValue = rows.reduce((a, r) => a + r.amount, 0);
+        const totalItems = rows.reduce((a, r) => a + r.items, 0);
+        const text = [
+          `Shipment Logs — ${periodLabel}`,
+          showUser ? "" : `For: ${user?.name}`,
+          `${rows.length} shipments · ${totalItems} items · ₹ ${totalValue}`,
+          "",
+          ...rows.map(
+            (r) =>
+              `${r.date} · ${r.ref}${showUser ? ` · ${r.user}` : ""} · ${r.status} · ${r.items} items · ₹ ${r.amount}`,
+          ),
+        ].join("\n");
+        const ok = await copyText(text);
+        showToast(
+          ok
+            ? { message: "Summary copied to clipboard.", kind: "success" }
+            : { message: "Copy failed.", kind: "error" },
+        );
+      }
+    } catch (error) {
+      showToast({ message: "Export failed. Try again.", kind: "error" });
     }
   };
 
@@ -217,25 +376,69 @@ export default function ShipmentTrackerScreen() {
             subtitle="HISTORY & TRACKING"
             onBack={() => router.back()}
             right={
-              <PressableScale
-                hapticFeedback
-                onPress={() => setShowDatePicker(true)}
-                style={styles.calendarBtn}
-              >
-                <Feather
-                  name="calendar"
-                  size={17}
-                  color={timeFilter === "day" ? palette.primaryBright : palette.textTertiary}
-                />
-              </PressableScale>
+              <View style={styles.headerActions}>
+                <PressableScale
+                  hapticFeedback
+                  onPress={() => setShowDateSheet(true)}
+                  style={styles.calendarBtn}
+                >
+                  <Feather
+                    name="calendar"
+                    size={17}
+                    color={timeFilter === "custom" ? palette.primaryBright : palette.textTertiary}
+                  />
+                </PressableScale>
+                <PressableScale
+                  hapticFeedback
+                  onPress={() => setShowSortSheet(true)}
+                  style={styles.calendarBtn}
+                >
+                  <Feather
+                    name="sliders"
+                    size={17}
+                    color={sortMode !== "date-desc" ? palette.primaryBright : palette.textTertiary}
+                  />
+                </PressableScale>
+                <PressableScale
+                  hapticFeedback
+                  onPress={() => setShowExportSheet(true)}
+                  style={styles.calendarBtn}
+                >
+                  <Feather name="share-2" size={16} color={palette.textTertiary} />
+                </PressableScale>
+              </View>
             }
           />
         </View>
 
         {/* --- FILTERS SECTION --- */}
         <View style={styles.filtersWrap}>
-          {/* 1. Status Tabs (Pills) */}
+          {/* 0. Search Bar */}
           <StaggerItem index={0}>
+            <View style={styles.searchWrap}>
+              <Feather name="search" size={15} color={palette.textTertiary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search ID, user or status..."
+                placeholderTextColor={palette.textTertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <PressableScale
+                  hapticFeedback
+                  onPress={() => setSearchQuery("")}
+                  style={styles.searchClear}
+                >
+                  <Feather name="x" size={13} color={palette.textSecondary} />
+                </PressableScale>
+              )}
+            </View>
+          </StaggerItem>
+
+          {/* 1. Status Tabs (Pills) */}
+          <StaggerItem index={1}>
             <View style={styles.pillRow}>
               {["All", "Pending", "Received"].map((status) => {
                 const active = statusFilter === status;
@@ -261,7 +464,7 @@ export default function ShipmentTrackerScreen() {
           </StaggerItem>
 
           {/* 2. Time Filters (Text Links) */}
-          <StaggerItem index={1}>
+          <StaggerItem index={2}>
             <View style={styles.timeRow}>
               {["week", "month", "year", "all"].map((tf) => {
                 const active = timeFilter === tf;
@@ -282,24 +485,25 @@ export default function ShipmentTrackerScreen() {
             </View>
           </StaggerItem>
 
-          {showDatePicker && (
-            <DateTimePicker
-              value={customDate}
-              mode="date"
-              display="default"
-              onChange={(event, date) => {
-                setShowDatePicker(false);
-                if (date) {
-                  setCustomDate(date);
-                  setTimeFilter("day");
-                }
-              }}
-            />
-          )}
+          <DateRangeSheet
+            visible={showDateSheet}
+            onClose={() => setShowDateSheet(false)}
+            initialRange={timeFilter === "custom" ? dateRange : null}
+            onApply={(range) => {
+              setShowDateSheet(false);
+              if (range) {
+                setDateRange(range);
+                setTimeFilter("custom");
+              } else {
+                setDateRange(null);
+                setTimeFilter("month");
+              }
+            }}
+          />
 
           {/* 3. User Chips (Admin Only) */}
           {user?.role === "admin" && (
-            <StaggerItem index={2}>
+            <StaggerItem index={3}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -346,16 +550,19 @@ export default function ShipmentTrackerScreen() {
             </StaggerItem>
           )}
 
-          {/* Active day-filter indicator */}
-          {timeFilter === "day" && (
+          {/* Active range-filter indicator */}
+          {timeFilter === "custom" && dateRange && (
             <View style={styles.dayBanner}>
               <Feather name="calendar" size={13} color={palette.primaryBright} />
               <Text style={styles.dayBannerText}>
-                Showing {customDate.toDateString()}
+                Showing {prettyRange(dateRange)}
               </Text>
               <PressableScale
                 hapticFeedback
-                onPress={() => setTimeFilter("month")}
+                onPress={() => {
+                  setDateRange(null);
+                  setTimeFilter("month");
+                }}
                 style={styles.dayBannerClear}
               >
                 <Feather name="x" size={12} color={palette.textSecondary} />
@@ -388,7 +595,88 @@ export default function ShipmentTrackerScreen() {
           />
         )}
       </View>
+
+      {/* Sort options */}
+      <SortSheet
+        visible={showSortSheet}
+        active={sortMode}
+        onClose={() => setShowSortSheet(false)}
+        onSelect={(mode) => {
+          setSortMode(mode);
+          setShowSortSheet(false);
+        }}
+      />
+
+      {/* Export filtered logs */}
+      <ExportSheet
+        visible={showExportSheet}
+        onClose={() => setShowExportSheet(false)}
+        title="Export Shipment Logs"
+        subtitle={`${filteredData.length} shipments · ${describePeriod(timeFilter, dateRange)}`}
+        onFormat={handleExport}
+        disabled={filteredData.length === 0}
+      />
     </SafeAreaView>
+  );
+}
+
+// Bottom sheet with sort options for the shipment list.
+function SortSheet({
+  visible,
+  active,
+  onClose,
+  onSelect,
+}: {
+  visible: boolean;
+  active: SortMode;
+  onClose: () => void;
+  onSelect: (mode: SortMode) => void;
+}) {
+  if (!visible) return null;
+  return (
+    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+      <View style={styles.sheetBackdrop}>
+        <PressableScale
+          hapticFeedback={false}
+          onPress={onClose}
+          style={StyleSheet.absoluteFillObject}
+        >
+          <View style={styles.sheetDim} />
+        </PressableScale>
+        <View style={styles.sortSheetBody}>
+          <View style={styles.sheetNotch} />
+          <View style={styles.sortHeaderRow}>
+            <Text style={styles.sortTitle}>Sort by</Text>
+            <PressableScale hapticFeedback onPress={onClose} style={styles.sortCloseBtn}>
+              <Feather name="x" size={15} color={palette.textSecondary} />
+            </PressableScale>
+          </View>
+          <View style={styles.sortListCol}>
+            {SORT_OPTIONS.map((opt) => {
+              const isActive = active === opt.key;
+              return (
+                <PressableScale
+                  key={opt.key}
+                  hapticFeedback
+                  onPress={() => onSelect(opt.key)}
+                  style={[styles.sortRow, isActive && styles.sortRowActive]}
+                >
+                  <View style={[styles.sortRadio, isActive && styles.sortRadioActive]}>
+                    {isActive && <View style={styles.sortRadioDot} />}
+                  </View>
+                  <Text style={[styles.sortLabel, isActive && styles.sortLabelActive]}>
+                    {opt.label}
+                  </Text>
+                  {isActive && (
+                    <Feather name="check" size={15} color={palette.primaryBright} />
+                  )}
+                </PressableScale>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -410,6 +698,103 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerActions: { flexDirection: "row", gap: spacing.sm },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 42,
+  },
+  searchInput: {
+    flex: 1,
+    color: palette.text,
+    fontSize: 13.5,
+    fontWeight: "500",
+    paddingVertical: 0,
+    includeFontPadding: false,
+  },
+  searchClear: { padding: 4 },
+  sheetBackdrop: { flex: 1, justifyContent: "flex-end" },
+  sheetDim: { flex: 1, backgroundColor: "rgba(0,0,0,0.66)" },
+  sortSheetBody: {
+    backgroundColor: palette.surfaceElevated,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: palette.borderStrong,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  sheetNotch: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: palette.borderStrong,
+    marginBottom: spacing.md,
+  },
+  sortHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  sortTitle: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  sortCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceHighest,
+    borderWidth: 1,
+    borderColor: palette.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sortListCol: { gap: spacing.xs, paddingHorizontal: spacing.lg },
+  sortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: palette.surfaceHighest,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  sortRowActive: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primarySoft,
+  },
+  sortRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: palette.borderStrong,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sortRadioActive: { borderColor: palette.primary },
+  sortRadioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: palette.primaryBright,
+  },
+  sortLabel: { color: palette.textSecondary, fontSize: 14, fontWeight: "600", flex: 1 },
+  sortLabelActive: { color: palette.primaryBright, fontWeight: "700" },
   pillRow: {
     flexDirection: "row",
     backgroundColor: palette.surfaceElevated,

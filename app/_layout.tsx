@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from "../src/context/AuthContext";
 import config from "../tamagui.config";
 import { palette } from "../src/theme/tokens";
 import { ToastProvider } from "../src/components/ui";
+import { hydrateHapticsSetting } from "../src/utils/haptics";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -92,6 +93,10 @@ function RootNavigation() {
         name="shipment-new"
         options={{ animation: "slide_from_bottom" }}
       />
+      <Stack.Screen
+        name="my-earnings"
+        options={{ animation: "slide_from_bottom" }}
+      />
     </Stack>
   );
 }
@@ -108,6 +113,7 @@ export default function RootLayout() {
     if (loaded) {
       SplashScreen.hideAsync();
     }
+    hydrateHapticsSetting();
   }, [loaded]);
 
   if (!loaded) return null;

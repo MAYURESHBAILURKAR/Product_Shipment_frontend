@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Image as RNImage,
   ScrollView,
@@ -11,8 +11,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+  AppDialog,
   GlassCard,
   PressableScale,
+  PrimaryButton,
   ScreenHeader,
   SectionHeader,
   ShareShipmentModal,
@@ -35,6 +37,39 @@ export default function ShipmentDetailsScreen() {
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [paidDialog, setPaidDialog] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+
+  // Timeline steps: shipped is always done (it exists); received/paid depend
+  // on status/paymentStatus. updatedAt approximates the received-at time.
+  const timeline = useMemo(() => {
+    if (!shipment) return [];
+    const received = shipment.status === "received";
+    const paid = shipment.paymentStatus === "paid";
+    return [
+      {
+        key: "shipped",
+        title: "Shipped",
+        caption: `${shipment.totalQuantity} units sent to warehouse`,
+        at: shipment.shippedAt,
+        done: true,
+      },
+      {
+        key: "received",
+        title: "Received",
+        caption: "Confirmed by warehouse admin",
+        at: received ? shipment.updatedAt || shipment.shippedAt : null,
+        done: received,
+      },
+      {
+        key: "paid",
+        title: "Paid",
+        caption: "Payout transferred",
+        at: paid ? shipment.updatedAt || null : null,
+        done: paid,
+      },
+    ];
+  }, [shipment]);
 
   useEffect(() => {
     if (id) {
@@ -56,6 +91,26 @@ export default function ShipmentDetailsScreen() {
       router.back();
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Same PUT the admin screen uses; optimistic local update on success.
+  const handleMarkPaid = async () => {
+    try {
+      setMarkingPaid(true);
+      await axios.put(
+        `${API_URL}/shipments/${id}`,
+        { paymentStatus: "paid" },
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
+      setShipment((prev: any) => ({ ...prev, paymentStatus: "paid" }));
+      showToast({ message: "Marked as paid.", kind: "success" });
+    } catch (error) {
+      console.error("Mark paid error:", error);
+      showToast({ message: "Could not update payment status.", kind: "error" });
+    } finally {
+      setMarkingPaid(false);
+      setPaidDialog(false);
     }
   };
 
@@ -188,8 +243,85 @@ export default function ShipmentDetailsScreen() {
             </View>
           </StaggerItem>
 
-          {/* 5. Payment Status Footer */}
+          {/* 5. Timeline Stepper */}
           <StaggerItem index={3}>
+            <SectionHeader label="Timeline" />
+            <View style={styles.timelineCard}>
+              {timeline.map((step, i) => (
+                <View key={step.key} style={styles.timelineRow}>
+                  {/* Rail: dot + connecting line */}
+                  <View style={styles.timelineRail}>
+                    <View
+                      style={[
+                        styles.timelineDot,
+                        step.done && styles.timelineDotDone,
+                        step.key === "paid" && step.done && styles.timelineDotPaid,
+                      ]}
+                    >
+                      {step.done ? (
+                        <Feather
+                          name="check"
+                          size={11}
+                          color="#FFFFFF"
+                        />
+                      ) : null}
+                    </View>
+                    {i < timeline.length - 1 && (
+                      <View
+                        style={[
+                          styles.timelineLine,
+                          timeline[i + 1]?.done && styles.timelineLineDone,
+                        ]}
+                      />
+                    )}
+                  </View>
+
+                  {/* Content */}
+                  <View
+                    style={[
+                      styles.timelineBody,
+                      i === timeline.length - 1 && styles.timelineBodyLast,
+                    ]}
+                  >
+                    <View style={styles.timelineTitleRow}>
+                      <Text
+                        style={[
+                          styles.timelineTitle,
+                          !step.done && styles.timelineTitlePending,
+                        ]}
+                      >
+                        {step.title}
+                      </Text>
+                      {step.at && (
+                        <Text style={styles.timelineTime}>
+                          {new Date(step.at).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                          })}{" "}
+                          ·{" "}
+                          {new Date(step.at).toLocaleTimeString("en-GB", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </Text>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.timelineCaption,
+                        !step.done && styles.timelineCaptionPending,
+                      ]}
+                    >
+                      {step.caption}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </StaggerItem>
+
+          {/* 6. Payment Status Footer */}
+          <StaggerItem index={4}>
             <View
               style={[
                 styles.paymentCard,
@@ -216,7 +348,7 @@ export default function ShipmentDetailsScreen() {
                   <Text style={styles.paymentSub}>
                     {shipment.paymentStatus === "paid"
                       ? "Funds have been transferred."
-                      : "Waiting for admin approval."}
+                      : "Payout not yet confirmed."}
                   </Text>
                 </View>
               </View>
@@ -231,6 +363,17 @@ export default function ShipmentDetailsScreen() {
                 {shipment.paymentStatus}
               </Text>
             </View>
+
+            {/* Mark as Paid — mirrors the admin action; available to both
+                roles from the details screen */}
+            {shipment.paymentStatus !== "paid" && (
+              <PrimaryButton
+                label="Mark as Paid"
+                icon="check"
+                size="md"
+                onPress={() => setPaidDialog(true)}
+              />
+            )}
           </StaggerItem>
         </View>
       </ScrollView>
@@ -250,6 +393,27 @@ export default function ShipmentDetailsScreen() {
         }))}
         totalItems={shipment.totalQuantity}
         totalValue={shipment.totalAmount}
+      />
+
+      {/* Mark as Paid confirmation */}
+      <AppDialog
+        visible={paidDialog}
+        title="Mark as Paid?"
+        message="This confirms the payout for this shipment has been transferred."
+        icon="check-circle"
+        kind="success"
+        buttons={[
+          {
+            label: "Cancel",
+            style: "cancel",
+            onPress: () => setPaidDialog(false),
+          },
+          {
+            label: "Mark Paid",
+            style: "confirm",
+            onPress: handleMarkPaid,
+          },
+        ]}
       />
     </SafeAreaView>
   );
@@ -370,6 +534,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderColor: palette.border,
     borderWidth: 1,
+    gap: spacing.md,
   },
   paymentPaid: {
     backgroundColor: "rgba(34, 197, 94, 0.08)",
@@ -398,6 +563,69 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.5,
   },
+  timelineCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  timelineRow: { flexDirection: "row" },
+  timelineRail: {
+    width: 28,
+    alignItems: "center",
+  },
+  timelineDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surfaceHighest,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timelineDotDone: {
+    borderColor: palette.success,
+    backgroundColor: palette.success,
+  },
+  timelineDotPaid: { borderColor: palette.accent, backgroundColor: palette.accent },
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: palette.borderStrong,
+    marginVertical: 2,
+    borderRadius: 1,
+  },
+  timelineLineDone: { backgroundColor: palette.success },
+  timelineBody: {
+    flex: 1,
+    paddingBottom: spacing.lg,
+  },
+  timelineBodyLast: { paddingBottom: spacing.xs },
+  timelineTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  timelineTitle: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  timelineTitlePending: { color: palette.textSecondary },
+  timelineTime: {
+    color: palette.textTertiary,
+    fontSize: 10.5,
+    fontWeight: "600",
+  },
+  timelineCaption: {
+    color: palette.textSecondary,
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  timelineCaptionPending: { color: palette.textTertiary },
   skeletonCard: {
     height: 120,
     borderRadius: radius.lg,

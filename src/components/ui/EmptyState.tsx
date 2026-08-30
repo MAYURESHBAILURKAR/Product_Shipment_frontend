@@ -4,12 +4,15 @@ import { ComponentProps } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { palette, spacing } from "../../theme/tokens";
 import { PressableScale } from "./PressableScale";
+import { RupeeIcon } from "./RupeeIcon";
 import { StaggerItem } from "./StaggerItem";
 
 type FeatherName = ComponentProps<typeof Feather>["name"];
 
 interface EmptyStateProps {
   icon: FeatherName;
+  /** Render the MCI rupee glyph instead (Feather has no rupee icon) */
+  rupee?: boolean;
   title: string;
   message?: string;
   actionLabel?: string;
@@ -19,6 +22,7 @@ interface EmptyStateProps {
 // Friendly empty-state block for lists and screens.
 export function EmptyState({
   icon,
+  rupee = false,
   title,
   message,
   actionLabel,
@@ -28,7 +32,11 @@ export function EmptyState({
     <StaggerItem>
       <View style={styles.wrap}>
         <View style={styles.iconWrap}>
-          <Feather name={icon} size={28} color={palette.textTertiary} />
+          {rupee ? (
+            <RupeeIcon size={28} color={palette.textTertiary} />
+          ) : (
+            <Feather name={icon} size={28} color={palette.textTertiary} />
+          )}
         </View>
         <Text style={styles.title}>{title}</Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
