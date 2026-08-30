@@ -9,7 +9,7 @@ export const AppVersionDisplay = (props: YStackProps) => {
   const version =
     Constants.expoConfig?.version || Constants.manifest?.version || "Dev";
 
-  // Optional: Read build number for clearer debugging (e.g., 1.0.2 (45))
+  // Optional: Read build number for clearer debugging (e.g., 1.0.3 (45))
   const buildNumber =
     Constants.expoConfig?.ios?.buildNumber ||
     Constants.expoConfig?.android?.versionCode ||
