@@ -103,7 +103,15 @@ export default function ShipmentDetailsScreen() {
         { paymentStatus: "paid" },
         { headers: { Authorization: `Bearer ${user?.token}` } },
       );
-      setShipment((prev: any) => ({ ...prev, paymentStatus: "paid" }));
+      setShipment((prev: any) => ({
+        ...prev,
+        paymentStatus: "paid",
+        // Server auto-receives on paid; mirror it locally so the timeline
+        // and status badge update in the same render.
+        ...(prev.status === "pending"
+          ? { status: "received", receivedAt: new Date().toISOString() }
+          : {}),
+      }));
       showToast({ message: "Marked as paid.", kind: "success" });
     } catch (error) {
       console.error("Mark paid error:", error);

@@ -109,7 +109,15 @@ export default function ShipmentHistoryScreen() {
         subtitle={`${item.items.length} Product Types`}
         trailing={
           <View style={styles.trailingWrap}>
-            <StatusBadge status={item.status} />
+            <View style={styles.badgeRow}>
+              <StatusBadge status={item.status} />
+              {item.paymentStatus && (
+                <StatusBadge
+                  status={item.paymentStatus}
+                  label={item.paymentStatus === "paid" ? "PAID" : "UNPAID"}
+                />
+              )}
+            </View>
             <View style={styles.trailingActions}>
               {isPending ? (
                 <PressableScale
@@ -296,6 +304,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   trailingWrap: { alignItems: "flex-end", gap: 8 },
+  badgeRow: { flexDirection: "row", gap: 6, alignItems: "center" },
   trailingActions: {
     flexDirection: "row",
     alignItems: "center",

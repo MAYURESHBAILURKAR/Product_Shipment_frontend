@@ -334,15 +334,48 @@ export default function ShipmentTrackerScreen() {
               </View>
 
               {/* Status Pill */}
-              <View
-                style={[
-                  styles.statusPill,
-                  { backgroundColor: `${color}1F`, borderColor: `${color}55` },
-                ]}
-              >
-                <Text style={[styles.statusText, { color }]}>
-                  {item.status}
-                </Text>
+              <View style={styles.pillCol}>
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: `${color}1F`, borderColor: `${color}55` },
+                  ]}
+                >
+                  <Text style={[styles.statusText, { color }]}>
+                    {item.status}
+                  </Text>
+                </View>
+                {item.paymentStatus && (
+                  <View
+                    style={[
+                      styles.statusPill,
+                      {
+                        backgroundColor:
+                          item.paymentStatus === "paid"
+                            ? `${palette.success}1F`
+                            : `${palette.textTertiary}1F`,
+                        borderColor:
+                          item.paymentStatus === "paid"
+                            ? `${palette.success}55`
+                            : `${palette.textTertiary}55`,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color:
+                            item.paymentStatus === "paid"
+                              ? palette.success
+                              : palette.textTertiary,
+                        },
+                      ]}
+                    >
+                      {item.paymentStatus === "paid" ? "PAID" : "UNPAID"}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -910,6 +943,7 @@ const styles = StyleSheet.create({
   },
   senderName: { color: palette.primaryBright, fontSize: 12, marginTop: 1 },
   dateText: { color: palette.textSecondary, fontSize: 11, marginTop: 2 },
+  pillCol: { alignItems: "flex-end", gap: 5 },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,

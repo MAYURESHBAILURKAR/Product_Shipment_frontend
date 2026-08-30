@@ -16,6 +16,7 @@ import {
   ScreenHeader,
   SkeletonListRow,
   StaggerItem,
+  StatusBadge,
   useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
@@ -67,7 +68,18 @@ export default function AdminShipmentsScreen() {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
       setShipments((prev: any) =>
-        prev.map((s: any) => (s._id === id ? { ...s, ...updates } : s)),
+        prev.map((s: any) =>
+          s._id === id
+            ? {
+                ...s,
+                ...updates,
+                // Server auto-receives when marked paid; mirror locally.
+                ...(updates.paymentStatus === "paid" && s.status === "pending"
+                  ? { status: "received", receivedAt: new Date().toISOString() }
+                  : {}),
+              }
+            : s,
+        ),
       );
     } catch (error) {
       showToast({ message: "Update failed", kind: "error" });
@@ -99,8 +111,14 @@ export default function AdminShipmentsScreen() {
                 </Text>
               </View>
             </View>
-            <View style={styles.idBadge}>
-              <Text style={styles.idText}>#{item._id.slice(-4).toUpperCase()}</Text>
+            <View style={styles.idRow}>
+              <StatusBadge
+                status={item.paymentStatus}
+                label={item.paymentStatus === "paid" ? "PAID" : "UNPAID"}
+              />
+              <View style={styles.idBadge}>
+                <Text style={styles.idText}>#{item._id.slice(-4).toUpperCase()}</Text>
+              </View>
             </View>
           </View>
 
@@ -249,6 +267,7 @@ const styles = StyleSheet.create({
   },
   userName: { color: palette.text, fontWeight: "700", fontSize: 14 },
   dateText: { color: palette.textSecondary, fontSize: 11, marginTop: 2 },
+  idRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   idBadge: {
     backgroundColor: palette.surfaceHighest,
     paddingHorizontal: 8,

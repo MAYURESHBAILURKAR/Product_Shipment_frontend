@@ -64,6 +64,8 @@ export const statusColor = {
   shipped: palette.accent,
   inactive: palette.danger,
   rejected: palette.danger,
+  paid: palette.success,
+  unpaid: palette.textTertiary,
   default: palette.textTertiary,
 } as const;
 
