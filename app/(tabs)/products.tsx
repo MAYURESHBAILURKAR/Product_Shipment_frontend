@@ -3,14 +3,16 @@ import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
-  Image as RNImage,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "tamagui";
 import {
@@ -29,6 +31,35 @@ const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - 12) / 2; // 2 columns with padding + gap
 
+// Image that fades in on first load, with a bottom scrim that carries the
+// brand overlay. The scrim + text shadow keep the brand readable on any photo.
+function FadeInImage({ uri, style }: { uri?: string; style?: object }) {
+  const opacity = useState(new Animated.Value(0))[0];
+  return (
+    <View style={[styles.imageWrapInner]}>
+      <Animated.Image
+        source={{ uri: uri || "https://placehold.co/100" }}
+        style={{ width: "100%", height: "100%", opacity }}
+        resizeMode="cover"
+        onLoad={() =>
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }).start()
+        }
+      />
+      <LinearGradient
+        colors={["rgba(7,9,13,0)", "rgba(7,9,13,0.45)", "rgba(7,9,13,0.85)"]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0.45 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+    </View>
+  );
+}
+
 export default function ProductsScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -37,6 +68,7 @@ export default function ProductsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("all");
 
   // Sheet State
   const [openSheet, setOpenSheet] = useState(false);
@@ -65,13 +97,21 @@ export default function ProductsScreen() {
     }
   };
 
+  // Unique brand list for the filter chips, sorted A→Z.
+  const brands = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p: any) => p.brand && set.add(p.brand));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     return products.filter(
       (p: any) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase()),
+        (selectedBrand === "all" || p.brand === selectedBrand) &&
+        (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.brand.toLowerCase().includes(searchQuery.toLowerCase())),
     );
-  }, [products, searchQuery]);
+  }, [products, searchQuery, selectedBrand]);
 
   const openCreateMode = () => {
     setEditingProduct(null);
@@ -120,13 +160,15 @@ export default function ProductsScreen() {
           hapticFeedback
           style={styles.card}
         >
-          {/* Image */}
+          {/* Image with brand overlay */}
           <View style={styles.imageWrap}>
-            <RNImage
-              source={{ uri: item.photoUrl || "https://placehold.co/100" }}
-              style={{ width: "100%", height: "100%" }}
-              resizeMode="cover"
-            />
+            <FadeInImage uri={item.photoUrl} />
+            {/* Brand over the bottom scrim */}
+            <View style={styles.brandOverlay}>
+              <Text style={styles.brandOverlayText} numberOfLines={1}>
+                {item.brand}
+              </Text>
+            </View>
             <View style={styles.skuBadge}>
               <Text style={styles.skuText}>
                 SKU-{item._id.slice(-3).toUpperCase()}
@@ -141,7 +183,6 @@ export default function ProductsScreen() {
 
           {/* Content */}
           <View style={styles.cardBody}>
-            <Text style={styles.brand}>{item.brand}</Text>
             <Text style={styles.productName} numberOfLines={2}>
               {item.name}
             </Text>
@@ -200,6 +241,53 @@ export default function ProductsScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
+
+          {/* Brand Filter Chips */}
+          {brands.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.brandChipsContent}
+            >
+              <PressableScale
+                hapticFeedback
+                onPress={() => setSelectedBrand("all")}
+                style={[
+                  styles.brandChip,
+                  selectedBrand === "all" && styles.brandChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.brandChipText,
+                    selectedBrand === "all" && styles.brandChipTextActive,
+                  ]}
+                >
+                  All
+                </Text>
+              </PressableScale>
+              {brands.map((brand) => {
+                const active = selectedBrand === brand;
+                return (
+                  <PressableScale
+                    key={brand}
+                    hapticFeedback
+                    onPress={() => setSelectedBrand(brand)}
+                    style={[styles.brandChip, active && styles.brandChipActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.brandChipText,
+                        active && styles.brandChipTextActive,
+                      ]}
+                    >
+                      {brand}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </ScrollView>
+          )}
         </StaggerItem>
 
         {loading && products.length === 0 ? (
@@ -327,6 +415,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
   },
+  brandChipsContent: { gap: spacing.sm, paddingVertical: 2 },
+  brandChip: {
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+  },
+  brandChipActive: {
+    backgroundColor: palette.primarySoft,
+    borderColor: palette.primary,
+  },
+  brandChipText: { color: palette.textSecondary, fontSize: 12, fontWeight: "600" },
+  brandChipTextActive: { color: palette.primaryBright },
   card: {
     backgroundColor: palette.surfaceElevated,
     borderColor: palette.border,
@@ -336,6 +439,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   imageWrap: { height: 130, width: "100%", backgroundColor: palette.surface },
+  imageWrapInner: {
+    flex: 1,
+    borderTopLeftRadius: radius.lg - 1,
+    borderTopRightRadius: radius.lg - 1,
+    overflow: "hidden",
+  },
   skuBadge: {
     position: "absolute",
     top: 8,
@@ -357,11 +466,23 @@ const styles = StyleSheet.create({
   },
   lowStockText: { color: "#000000", fontSize: 9, fontWeight: "700" },
   cardBody: { padding: spacing.md, gap: 4 },
-  brand: {
-    color: palette.primaryBright,
-    fontSize: 11,
+  brandOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: 6,
+    paddingTop: 14,
+  },
+  brandOverlayText: {
+    color: "#FFFFFF",
+    fontSize: 11.5,
     fontWeight: "700",
     letterSpacing: 0.3,
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
   },
   productName: {
     color: palette.text,

@@ -136,7 +136,7 @@ export default function ShipmentDetailsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: palette.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* 1. Header */}
         <View style={styles.headerPad}>
           <ScreenHeader
@@ -363,20 +363,21 @@ export default function ShipmentDetailsScreen() {
                 {shipment.paymentStatus}
               </Text>
             </View>
-
-            {/* Mark as Paid — mirrors the admin action; available to both
-                roles from the details screen */}
-            {shipment.paymentStatus !== "paid" && (
-              <PrimaryButton
-                label="Mark as Paid"
-                icon="check"
-                size="md"
-                onPress={() => setPaidDialog(true)}
-              />
-            )}
           </StaggerItem>
         </View>
       </ScrollView>
+
+      {/* Mark as Paid — pinned footer so it stays visible without scrolling */}
+      {shipment.paymentStatus !== "paid" && (
+        <View style={styles.paidFooter}>
+          <PrimaryButton
+            label="Mark as Paid"
+            icon="check"
+            size="md"
+            onPress={() => setPaidDialog(true)}
+          />
+        </View>
+      )}
 
       {/* Share receipt (same flow as post-create) */}
       <ShareShipmentModal
@@ -534,7 +535,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderColor: palette.border,
     borderWidth: 1,
-    gap: spacing.md,
+  },
+  paidFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: palette.surfaceElevated,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+    padding: spacing.lg,
   },
   paymentPaid: {
     backgroundColor: "rgba(34, 197, 94, 0.08)",
