@@ -4,10 +4,19 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
   Image as RNImage,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { Input, Sheet, Text as TText } from "tamagui";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
@@ -43,6 +52,7 @@ export function ProductFormSheet({
   );
   const [uploading, setUploading] = useState(false);
   const [confirmUpdate, setConfirmUpdate] = useState(false);
+  const [showImageSource, setShowImageSource] = useState(false);
 
   // Re-seed the form each time the sheet opens (it stays mounted).
   useEffect(() => {
@@ -55,8 +65,23 @@ export function ProductFormSheet({
 
   useDismissOnBack(open, () => onOpenChange(false));
 
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+  // Camera needs explicit permission on iOS/Android 13+.
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      showToast({ message: t("products.cameraPermission"), kind: "error" });
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+    if (!result.canceled) setImage(result.assets[0]);
+  };
+
+  const pickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
@@ -109,8 +134,18 @@ export function ProductFormSheet({
         kind: "success",
       });
       onSaved();
-    } catch (error) {
-      showToast({ message: t("admin.operationFailed"), kind: "error" });
+    } catch (error: any) {
+      // 409 = duplicate name+brand — surface the backend message.
+      if (error?.response?.status === 409) {
+        showToast({
+          message:
+            error.response.data?.message ||
+            t("products.duplicate", { name, brand }),
+          kind: "error",
+        });
+      } else {
+        showToast({ message: t("admin.operationFailed"), kind: "error" });
+      }
     } finally {
       setUploading(false);
     }
@@ -132,7 +167,7 @@ export function ProductFormSheet({
         </TText>
 
         <View style={{ alignItems: "center", marginBottom: 8 }}>
-          <PressableScale onPress={pickImage} hapticFeedback>
+          <PressableScale onPress={() => setShowImageSource(true)} hapticFeedback>
             <View style={styles.imagePicker}>
               {image ? (
                 <RNImage
@@ -143,7 +178,9 @@ export function ProductFormSheet({
                 <Feather name="camera" size={28} color={palette.textTertiary} />
               )}
             </View>
-            <Text style={styles.changeImage}>{t("products.changeImage")}</Text>
+            <Text style={styles.changeImage}>
+              {image ? t("products.changeImage") : t("products.addImage")}
+            </Text>
           </PressableScale>
         </View>
 
@@ -196,9 +233,166 @@ export function ProductFormSheet({
           },
         ]}
       />
+      {/* Image source chooser — camera or gallery */}
+      <ImageSourceDialog
+        visible={showImageSource}
+        hasImage={!!image}
+        onClose={() => setShowImageSource(false)}
+        onCamera={() => {
+          setShowImageSource(false);
+          takePhoto();
+        }}
+        onGallery={() => {
+          setShowImageSource(false);
+          pickFromGallery();
+        }}
+        onRemove={() => {
+          setShowImageSource(false);
+          setImage(null);
+        }}
+      />
     </Sheet>
   );
 }
+
+// Stacked action-sheet for choosing the image source (camera / gallery /
+// remove). Full-width rows read better than 3 buttons crammed in AppDialog's
+// single row.
+function ImageSourceDialog({
+  visible,
+  hasImage,
+  onClose,
+  onCamera,
+  onGallery,
+  onRemove,
+}: {
+  visible: boolean;
+  hasImage: boolean;
+  onClose: () => void;
+  onCamera: () => void;
+  onGallery: () => void;
+  onRemove: () => void;
+}) {
+  const { t } = useLanguage();
+  const fade = useSharedValue(0);
+  const card = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      fade.value = withTiming(1, { duration: 180 });
+      card.value = withDelay(60, withSpring(1, { damping: 16, stiffness: 220, mass: 0.9 }));
+    } else {
+      fade.value = withTiming(0, { duration: 140 });
+      card.value = withTiming(0, { duration: 140 });
+    }
+  }, [visible, fade, card]);
+
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: card.value,
+    transform: [{ translateY: (1 - card.value) * 24 }, { scale: 0.94 + card.value * 0.06 }],
+  }));
+
+  const Row = ({
+    icon,
+    label,
+    hint,
+    danger,
+    onPress,
+  }: {
+    icon: string;
+    label: string;
+    hint: string;
+    danger?: boolean;
+    onPress: () => void;
+  }) => (
+    <PressableScale onPress={onPress} hapticFeedback style={sourceStyles.row}>
+      <View
+        style={[
+          sourceStyles.rowIcon,
+          { backgroundColor: danger ? "rgba(248,113,113,0.12)" : palette.primarySoft },
+        ]}
+      >
+        <Feather name={icon as any} size={18} color={danger ? palette.danger : palette.primaryBright} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[sourceStyles.rowLabel, danger && { color: palette.danger }]}>{label}</Text>
+        <Text style={sourceStyles.rowHint}>{hint}</Text>
+      </View>
+      <Feather name="chevron-right" size={16} color={palette.textTertiary} />
+    </PressableScale>
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <View style={sourceStyles.root}>
+        <Animated.View style={[StyleSheet.absoluteFill, sourceStyles.backdrop, fadeStyle]}>
+          <PressableScale onPress={onClose} style={StyleSheet.absoluteFill} />
+        </Animated.View>
+        <Animated.View style={[sourceStyles.card, cardStyle]}>
+          <TText color={palette.text} fontSize={17} fontWeight="700" textAlign="center" marginBottom="$3">
+            {hasImage ? t("products.changeImage") : t("products.addImage")}
+          </TText>
+          <Row
+            icon="camera"
+            label={t("products.takePhoto")}
+            hint={t("products.takePhotoHint")}
+            onPress={onCamera}
+          />
+          <Row
+            icon="image"
+            label={t("products.chooseFromGallery")}
+            hint={t("products.chooseFromGalleryHint")}
+            onPress={onGallery}
+          />
+          {hasImage && (
+            <Row
+              icon="trash-2"
+              label={t("products.removePhoto")}
+              hint={t("products.removePhotoHint")}
+              danger
+              onPress={onRemove}
+            />
+          )}
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const sourceStyles = StyleSheet.create({
+  root: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  backdrop: { backgroundColor: "rgba(0,0,0,0.72)" },
+  card: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: palette.surfaceHighest,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  rowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowLabel: { color: palette.text, fontSize: 14.5, fontWeight: "700" },
+  rowHint: { color: palette.textTertiary, fontSize: 11.5, marginTop: 1 },
+});
 
 const styles = StyleSheet.create({
   imagePicker: {
