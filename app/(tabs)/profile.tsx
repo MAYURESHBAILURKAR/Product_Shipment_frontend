@@ -37,6 +37,7 @@ import {
   setPushEnabled,
 } from "../../src/utils/push";
 import { LOCALE_LABELS, useLanguage } from "../../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../../src/utils/errors";
 import type { Locale } from "../../src/i18n/translations";
 
 // ⚠️ REPLACE IP
@@ -97,7 +98,7 @@ export default function ProfileScreen() {
       setOpenSheet(false);
     } catch (error: any) {
       showToast({
-        message: error.response?.data?.message || t("common.updateFailed"),
+        message: getErrorMessage(error, t, "common.updateFailed"),
         kind: "error",
       });
     } finally {

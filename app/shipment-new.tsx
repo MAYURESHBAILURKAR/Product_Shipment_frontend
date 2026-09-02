@@ -32,6 +32,7 @@ import {
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../src/utils/errors";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -195,7 +196,7 @@ Please approve this in the Admin App.`;
     } catch (error: any) {
       setSubmitting(false);
       showToast({
-        message: error.response?.data?.message || t("newShipment.failedToSend"),
+        message: getErrorMessage(error, t, "newShipment.failedToSend"),
         kind: "error",
       });
     }

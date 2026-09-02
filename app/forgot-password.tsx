@@ -21,6 +21,7 @@ import {
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { Input } from "tamagui";
 import { useLanguage } from "../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../src/utils/errors";
 
 // ⚠️ Ensure this matches your .env or fallback
 const API_URL =
@@ -56,7 +57,7 @@ export default function ForgotPasswordScreen() {
     } catch (error: any) {
       console.error(error);
       showToast({
-        message: error.response?.data?.message || t("auth.resetFailed"),
+        message: getErrorMessage(error, t, "auth.resetFailed"),
         kind: "error",
       });
     } finally {

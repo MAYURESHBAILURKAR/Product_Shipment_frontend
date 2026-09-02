@@ -23,10 +23,22 @@ const en = {
   "common.all": "All",
   "common.loading": "Loading…",
   "common.saving": "Saving…",
-  "common.copyFailed": "Copy failed.",
-  "common.updateFailed": "Update failed",
+  "common.copyFailed": "Couldn't copy — please try again.",
+  "common.updateFailed": "Couldn't save your changes. Please try again.",
   "common.offline": "You're offline — showing saved data",
   "common.na": "N/A",
+
+  // --- error causes (shared by every screen's catch) ---
+  "errors.noConnection": "No internet connection. Check your network and try again.",
+  "errors.timedOut": "The server took too long to respond. Please try again.",
+  "errors.serverBusy": "The server is having trouble right now. Please try again in a moment.",
+  "errors.sessionExpired": "Your session has expired. Please log in again.",
+  "errors.notAllowed": "You don't have permission to do this.",
+  "errors.notFound": "This no longer exists — it may have been removed.",
+  "errors.conflict": "This already exists. Please check and try again.",
+  "errors.tooLarge": "The image is too large. Try a smaller photo.",
+  "errors.tooManyRequests": "Too many attempts. Please wait a moment and try again.",
+  "errors.cancelled": "The request was cancelled. Please try again.",
 
   // --- server awake screen ---
   "connect.establishing": "Establishing Connection",
@@ -46,14 +58,14 @@ const en = {
   "auth.forgot": "Forgot password?",
   "auth.signIn": "Sign In",
   "auth.fillAllFields": "Please fill in all fields",
-  "auth.checkConnection": "Check connection",
+  "auth.checkConnection": "Couldn't sign in. Check your internet and try again.",
   "auth.privacy": "Privacy",
   "auth.terms": "Terms",
   "auth.help": "Help",
   "auth.resetPassword": "Reset Password",
   "auth.resetHint": "Enter your registered email and new password.",
   "auth.resetSuccess": "Password has been reset! Please login.",
-  "auth.resetFailed": "Reset failed",
+  "auth.resetFailed": "Couldn't reset your password. Check the email address and try again.",
   "auth.backToLogin": "Back to Login",
 
   // --- dashboard (production) ---
@@ -123,7 +135,7 @@ const en = {
   "admin.passwordRequired": "Password is required for new users",
   "admin.userUpdated": "User Updated",
   "admin.userCreated": "User Created",
-  "admin.operationFailed": "Operation failed",
+  "admin.operationFailed": "That didn't work. Please try again.",
 
   // --- products / inventory ---
   "products.myProducts": "My Products",
@@ -137,7 +149,7 @@ const en = {
   "products.deleteProduct": "Delete Product",
   "products.deleteConfirm": "Delete \"{{name}}\"? This can't be undone.",
   "products.deleted": "Product deleted",
-  "products.couldNotDelete": "Could not delete",
+  "products.couldNotDelete": "Couldn't delete the product. Please try again.",
   "products.lowStock": "Low Stock",
   "products.inStock": "In Stock",
   "products.stock": "Stock: ",
@@ -205,8 +217,8 @@ const en = {
   "detail.markPaidMessage": "This confirms the payout for this shipment has been transferred.",
   "detail.markPaid": "Mark Paid",
   "detail.markedAsPaid": "Marked as paid.",
-  "detail.couldNotUpdatePayment": "Could not update payment status.",
-  "detail.couldNotLoad": "Could not load shipment details.",
+  "detail.couldNotUpdatePayment": "Couldn't mark it as paid. Please try again.",
+  "detail.couldNotLoad": "Couldn't load this shipment. Please try again.",
   "detail.unknownItem": "Unknown Item",
   "detail.brand": "Brand: ",
   "detail.units": "units",
@@ -225,7 +237,7 @@ const en = {
   "newShipment.totalItems": "TOTAL ITEMS",
   "newShipment.confirmSend": "Confirm & Send",
   "newShipment.addAtLeastOne": "Please add at least one item.",
-  "newShipment.failedToSend": "Failed to send shipment",
+  "newShipment.failedToSend": "Couldn't send your shipment. Please try again.",
   "newShipment.receiptTitle": "New Shipment",
   "newShipment.owner": "Owner: ",
   "newShipment.total": "Total: ",
@@ -235,7 +247,7 @@ const en = {
   "newShipment.shareImage": "Share Image",
   "newShipment.shareTip": "Tip: Copy Details first, then Share Image and paste as caption",
   "newShipment.shareUnavailable": "Sharing not available on this device",
-  "newShipment.shareFailed": "Failed to generate or share the shipment image.",
+  "newShipment.shareFailed": "Couldn't create the share image. Please try again.",
   "newShipment.copyFailed": "Failed to copy shipment details.",
   "newShipment.stockLabel": "Stock: ",
 
@@ -245,7 +257,7 @@ const en = {
   "editShipment.searchPlaceholder": "Search products...",
   "editShipment.confirmChanges": "Confirm Changes",
   "editShipment.updated": "Shipment Updated!",
-  "editShipment.loadFailed": "Failed to load shipment data",
+  "editShipment.loadFailed": "Couldn't load this shipment for editing. Please go back and try again.",
 
   // --- calendar heatmap ---
   "calendar.less": "Less",
@@ -320,7 +332,7 @@ const en = {
   "export.summaryCopied": "Summary copied to clipboard.",
   "export.whatsappOpening": "Opening WhatsApp…",
   "export.whatsappUnavailable": "WhatsApp isn't available on this device.",
-  "export.failed": "Export failed. Try again.",
+  "export.failed": "Couldn't export. Please try again.",
 
   // --- date range sheet ---
   "dateRange.title": "Filter by date range",
@@ -372,7 +384,7 @@ const en = {
   "adminScreens.exportPdf": "Export PDF",
   "adminScreens.earningsDistribution": "Earnings Distribution",
   "adminScreens.nothingToExport": "Nothing to export",
-  "adminScreens.couldNotGeneratePdf": "Could not generate PDF",
+  "adminScreens.couldNotGeneratePdf": "Couldn't create the PDF. Please try again.",
   "adminScreens.manageShipments": "Manage Shipments",
   "adminScreens.administration": "ADMINISTRATION",
   "adminScreens.noShipments": "No shipments found",
@@ -401,10 +413,22 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "common.all": "सभी",
   "common.loading": "लोड हो रहा है…",
   "common.saving": "सहेजा जा रहा है…",
-  "common.copyFailed": "कॉपी नहीं हुआ।",
-  "common.updateFailed": "अपडेट विफल",
+  "common.copyFailed": "कॉपी नहीं हुआ — कृपया फिर से कोशिश करें।",
+  "common.updateFailed": "बदलाव सहेजे नहीं गए। कृपया फिर से कोशिश करें।",
   "common.offline": "आप ऑफ़लाइन हैं — सहेजा गया डेटा दिख रहा है",
   "common.na": "एन/ए",
+
+  // --- error causes (shared by every screen's catch) ---
+  "errors.noConnection": "इंटरनेट कनेक्शन नहीं है। अपना नेटवर्क जांचें और फिर से कोशिश करें।",
+  "errors.timedOut": "सर्वर को जवाब देने में बहुत समय लगा। कृपया फिर से कोशिश करें।",
+  "errors.serverBusy": "सर्वर अभी कुछ समस्या में है। कुछ देर बाद फिर से कोशिश करें।",
+  "errors.sessionExpired": "आपका सेशन समाप्त हो गया है। कृपया दोबारा लॉगिन करें।",
+  "errors.notAllowed": "आपको यह करने की अनुमति नहीं है।",
+  "errors.notFound": "यह अब मौजूद नहीं है — शायद हटा दिया गया हो।",
+  "errors.conflict": "यह पहले से मौजूद है। कृपया जांचें और फिर से कोशिश करें।",
+  "errors.tooLarge": "फोटो बहुत बड़ी है। कृपया छोटी फोटो लें।",
+  "errors.tooManyRequests": "बहुत ज़्यादा प्रयास। कुछ देर रुककर फिर से कोशिश करें।",
+  "errors.cancelled": "अनुरोध रद्द हो गया। कृपया फिर से कोशिश करें।",
 
   // --- server awake screen ---
   "connect.establishing": "कनेक्शन बना रहा है",
@@ -424,14 +448,14 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "auth.forgot": "पासवर्ड भूल गए?",
   "auth.signIn": "साइन इन करें",
   "auth.fillAllFields": "कृपया सभी फ़ील्ड भरें",
-  "auth.checkConnection": "कनेक्शन जांचें",
+  "auth.checkConnection": "साइन इन नहीं हुआ। अपना इंटरनेट जांचें और फिर से कोशिश करें।",
   "auth.privacy": "गोपनीयता",
   "auth.terms": "शर्तें",
   "auth.help": "सहायता",
   "auth.resetPassword": "पासवर्ड रीसेट करें",
   "auth.resetHint": "अपना पंजीकृत ईमेल और नया पासवर्ड दर्ज करें।",
   "auth.resetSuccess": "पासवर्ड रीसेट हो गया! कृपया लॉगिन करें।",
-  "auth.resetFailed": "रीसेट विफल",
+  "auth.resetFailed": "पासवर्ड रीसेट नहीं हुआ। ईमेल पता जांचें और फिर से कोशिश करें।",
   "auth.backToLogin": "लॉगिन पर वापस जाएं",
 
   // --- dashboard (production) ---
@@ -501,7 +525,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "admin.passwordRequired": "नए उपयोगकर्ताओं के लिए पासवर्ड आवश्यक है",
   "admin.userUpdated": "उपयोगकर्ता अपडेट हुआ",
   "admin.userCreated": "उपयोगकर्ता बन गया",
-  "admin.operationFailed": "ऑपरेशन विफल",
+  "admin.operationFailed": "यह काम पूरा नहीं हुआ। कृपया फिर से कोशिश करें।",
 
   // --- products / inventory ---
   "products.myProducts": "मेरे उत्पाद",
@@ -515,7 +539,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "products.deleteProduct": "उत्पाद हटाएं",
   "products.deleteConfirm": "\"{{name}}\" हटाएं? इसे वापस नहीं किया जा सकता।",
   "products.deleted": "उत्पाद हटा दिया गया",
-  "products.couldNotDelete": "हटाया नहीं जा सका",
+  "products.couldNotDelete": "उत्पाद हटा नहीं गया। कृपया फिर से कोशिश करें।",
   "products.lowStock": "कम स्टॉक",
   "products.inStock": "स्टॉक में",
   "products.stock": "स्टॉक: ",
@@ -583,8 +607,8 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "detail.markPaidMessage": "इससे इस शिपमेंट का भुगतान स्थानांतरित होने की पुष्टि होती है।",
   "detail.markPaid": "भुगतान चिह्नित",
   "detail.markedAsPaid": "भुगतान चिह्नित कर दिया गया।",
-  "detail.couldNotUpdatePayment": "भुगतान स्थिति अपडेट नहीं हो सकी।",
-  "detail.couldNotLoad": "शिपमेंट विवरण लोड नहीं हो सका।",
+  "detail.couldNotUpdatePayment": "भुगतान हो गया मार्क नहीं हुआ। कृपया फिर से कोशिश करें।",
+  "detail.couldNotLoad": "यह शिपमेंट लोड नहीं हो सकी। कृपया फिर से कोशिश करें।",
   "detail.unknownItem": "अज्ञात आइटम",
   "detail.brand": "ब्रांड: ",
   "detail.units": "इकाइयाँ",
@@ -603,7 +627,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "newShipment.totalItems": "कुल आइटम",
   "newShipment.confirmSend": "पुष्टि करें और भेजें",
   "newShipment.addAtLeastOne": "कृपया कम से कम एक आइटम जोड़ें।",
-  "newShipment.failedToSend": "शिपमेंट भेजी नहीं जा सकी",
+  "newShipment.failedToSend": "शिपमेंट भेजी नहीं जा सकी। कृपया फिर से कोशिश करें।",
   "newShipment.receiptTitle": "नई शिपमेंट",
   "newShipment.owner": "स्वामी: ",
   "newShipment.total": "कुल: ",
@@ -613,7 +637,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "newShipment.shareImage": "छवि साझा करें",
   "newShipment.shareTip": "टिप: पहले विवरण कॉपी करें, फिर छवि साझा करें और कैप्शन में पेस्ट करें",
   "newShipment.shareUnavailable": "इस डिवाइस पर साझा करना उपलब्ध नहीं है",
-  "newShipment.shareFailed": "शिपमेंट छवि बनाने या साझा करने में विफल।",
+  "newShipment.shareFailed": "शेयर इमेज नहीं बन सकी। कृपया फिर से कोशिश करें।",
   "newShipment.copyFailed": "शिपमेंट विवरण कॉपी नहीं हो सका।",
   "newShipment.stockLabel": "स्टॉक: ",
 
@@ -623,7 +647,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "editShipment.searchPlaceholder": "उत्पाद खोजें...",
   "editShipment.confirmChanges": "परिवर्तन पुष्ट करें",
   "editShipment.updated": "शिपमेंट अपडेट हो गई!",
-  "editShipment.loadFailed": "शिपमेंट डेटा लोड नहीं हुआ",
+  "editShipment.loadFailed": "संपादन के लिए शिपमेंट लोड नहीं हुई। कृपया वापस जाकर फिर से कोशिश करें।",
 
   // --- calendar heatmap ---
   "calendar.less": "कम",
@@ -698,7 +722,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "export.summaryCopied": "सारांश क्लिपबोर्ड पर कॉपी हुआ।",
   "export.whatsappOpening": "WhatsApp खुल रहा है…",
   "export.whatsappUnavailable": "इस डिवाइस पर WhatsApp उपलब्ध नहीं है।",
-  "export.failed": "निर्यात विफल। पुनः प्रयास करें।",
+  "export.failed": "निर्यात नहीं हो सका। कृपया फिर से कोशिश करें।",
 
   // --- date range sheet ---
   "dateRange.title": "तारीख सीमा से फ़िल्टर करें",
@@ -750,7 +774,7 @@ const hi: Partial<Record<TranslationKey, string>> = {
   "adminScreens.exportPdf": "PDF निर्यात करें",
   "adminScreens.earningsDistribution": "कमाई वितरण",
   "adminScreens.nothingToExport": "निर्यात के लिए कुछ नहीं",
-  "adminScreens.couldNotGeneratePdf": "PDF नहीं बन पाई",
+  "adminScreens.couldNotGeneratePdf": "PDF नहीं बन पाई। कृपया फिर से कोशिश करें।",
   "adminScreens.manageShipments": "शिपमेंट प्रबंधित करें",
   "adminScreens.administration": "प्रशासन",
   "adminScreens.noShipments": "कोई शिपमेंट नहीं मिली",
@@ -777,10 +801,22 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "common.all": "सर्व",
   "common.loading": "लोड होत आहे…",
   "common.saving": "जतन होत आहे…",
-  "common.copyFailed": "कॉपी झाली नाही.",
-  "common.updateFailed": "अपडेट अयशस्वी",
+  "common.copyFailed": "कॉपी झाली नाही — कृपया पुन्हा प्रयत्न करा.",
+  "common.updateFailed": "बदल जतन झाले नाहीत. कृपया पुन्हा प्रयत्न करा.",
   "common.offline": "आपण ऑफलाइन आहात — जतन केलेला डेटा दिसत आहे",
   "common.na": "एन/ए",
+
+  // --- error causes (shared by every screen's catch) ---
+  "errors.noConnection": "इंटरनेट कनेक्शन नाही. नेटवर्क तपासा आणि पुन्हा प्रयत्न करा.",
+  "errors.timedOut": "सर्व्हरला उत्तर देण्यास खूप वेळ लागला. कृपया पुन्हा प्रयत्न करा.",
+  "errors.serverBusy": "सर्व्हरला सध्या काही अडचण आहे. थोड्या वेळाने पुन्हा प्रयत्न करा.",
+  "errors.sessionExpired": "तुमचे सेशन संपले आहे. कृपया पुन्हा लॉगिन करा.",
+  "errors.notAllowed": "हे करण्याची तुम्हाला परवानगी नाही.",
+  "errors.notFound": "हे आता अस्तित्वात नाही — कदाचित काढले गेले असेल.",
+  "errors.conflict": "हे आधीच अस्तित्वात आहे. कृपया तपासा आणि पुन्हा प्रयत्न करा.",
+  "errors.tooLarge": "फोटो खूप मोठी आहे. कृपया लहान फोटो घ्या.",
+  "errors.tooManyRequests": "खूप जास्त प्रयत्न झाले. थोडा वेळ थांबून पुन्हा प्रयत्न करा.",
+  "errors.cancelled": "विनंती रद्द झाली. कृपया पुन्हा प्रयत्न करा.",
 
   // --- server awake screen ---
   "connect.establishing": "कनेक्शन तयार होत आहे",
@@ -800,14 +836,14 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "auth.forgot": "पासवर्ड विसरलात?",
   "auth.signIn": "साइन इन",
   "auth.fillAllFields": "कृपया सर्व रकाने भरा",
-  "auth.checkConnection": "कनेक्शन तपासा",
+  "auth.checkConnection": "साइन इन झाले नाही. इंटरनेट तपासा आणि पुन्हा प्रयत्न करा.",
   "auth.privacy": "गोपनीयता",
   "auth.terms": "अटी",
   "auth.help": "मदत",
   "auth.resetPassword": "पासवर्ड रीसेट करा",
   "auth.resetHint": "तुमचा नोंदणीकृत ईमेल आणि नवीन पासवर्ड टाका.",
   "auth.resetSuccess": "पासवर्ड रीसेट झाला! कृपया लॉगिन करा.",
-  "auth.resetFailed": "रीसेट अयशस्वी",
+  "auth.resetFailed": "पासवर्ड रीसेट झाला नाही. ईमेल पत्ता तपासा आणि पुन्हा प्रयत्न करा.",
   "auth.backToLogin": "लॉगिनकडे परत",
 
   // --- dashboard (production) ---
@@ -877,7 +913,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "admin.passwordRequired": "नवीन वापरकर्त्यांसाठी पासवर्ड आवश्यक आहे",
   "admin.userUpdated": "वापरकर्ता अपडेट झाला",
   "admin.userCreated": "वापरकर्ता तयार झाला",
-  "admin.operationFailed": "ऑपरेशन अयशस्वी",
+  "admin.operationFailed": "हे काम पूर्ण झाले नाही. कृपया पुन्हा प्रयत्न करा.",
 
   // --- products / inventory ---
   "products.myProducts": "माझी उत्पादने",
@@ -891,7 +927,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "products.deleteProduct": "उत्पादन हटवा",
   "products.deleteConfirm": "\"{{name}}\" हटवायचे? हे परत केले जाऊ शकत नाही.",
   "products.deleted": "उत्पादन हटवले",
-  "products.couldNotDelete": "हटवता आले नाही",
+  "products.couldNotDelete": "उत्पादन हटवता आले नाही. कृपया पुन्हा प्रयत्न करा.",
   "products.lowStock": "कमी स्टॉक",
   "products.inStock": "स्टॉकमध्ये",
   "products.stock": "स्टॉक: ",
@@ -959,8 +995,8 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "detail.markPaidMessage": "यामुळे या शिपमेंटचे पेमेंट हस्तांतरण झाल्याची खात्री होते.",
   "detail.markPaid": "पेमेंट खूण",
   "detail.markedAsPaid": "पेमेंट खूण केला.",
-  "detail.couldNotUpdatePayment": "पेमेंट स्थिती अपडेट करता आली नाही.",
-  "detail.couldNotLoad": "शिपमेंट तपशील लोड झाला नाही.",
+  "detail.couldNotUpdatePayment": "पेड मार्क करता आले नाही. कृपया पुन्हा प्रयत्न करा.",
+  "detail.couldNotLoad": "ही शिपमेंट लोड झाली नाही. कृपया पुन्हा प्रयत्न करा.",
   "detail.unknownItem": "अज्ञात आयटम",
   "detail.brand": "ब्रँड: ",
   "detail.units": "युनिट्स",
@@ -979,7 +1015,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "newShipment.totalItems": "एकूण आयटम",
   "newShipment.confirmSend": "खात्री करा आणि पाठवा",
   "newShipment.addAtLeastOne": "कृपया किमान एक आयटम जोडा.",
-  "newShipment.failedToSend": "शिपमेंट पाठवता आली नाही",
+  "newShipment.failedToSend": "शिपमेंट पाठवता आली नाही. कृपया पुन्हा प्रयत्न करा.",
   "newShipment.receiptTitle": "नवीन शिपमेंट",
   "newShipment.owner": "मालक: ",
   "newShipment.total": "एकूण: ",
@@ -989,7 +1025,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "newShipment.shareImage": "प्रतिमा शेअर करा",
   "newShipment.shareTip": "टीप: आधी तपशील कॉपी करा, नंतर प्रतिमा शेअर करून कॅप्शनमध्ये पेस्ट करा",
   "newShipment.shareUnavailable": "या डिव्हाइसवर शेअर करणे उपलब्ध नाही",
-  "newShipment.shareFailed": "शिपमेंट प्रतिमा तयार करण्यात किंवा शेअर करण्यात अयशस्वी.",
+  "newShipment.shareFailed": "शेअर इमेज तयार झाली नाही. कृपया पुन्हा प्रयत्न करा.",
   "newShipment.copyFailed": "शिपमेंट तपशील कॉपी झाला नाही.",
   "newShipment.stockLabel": "स्टॉक: ",
 
@@ -999,7 +1035,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "editShipment.searchPlaceholder": "उत्पादने शोधा...",
   "editShipment.confirmChanges": "बदल खात्री करा",
   "editShipment.updated": "शिपमेंट अपडेट झाली!",
-  "editShipment.loadFailed": "शिपमेंट डेटा लोड झाला नाही",
+  "editShipment.loadFailed": "संपादनासाठी शिपमेंट लोड झाली नाही. कृपया मागे जाऊन पुन्हा प्रयत्न करा.",
 
   // --- calendar heatmap ---
   "calendar.less": "कमी",
@@ -1074,7 +1110,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "export.summaryCopied": "सारांश क्लिपबोर्डवर कॉपी झाला.",
   "export.whatsappOpening": "WhatsApp उघडत आहे…",
   "export.whatsappUnavailable": "या डिव्हाइसवर WhatsApp उपलब्ध नाही.",
-  "export.failed": "निर्यात अयशस्वी. पुन्हा प्रयत्न करा.",
+  "export.failed": "एक्सपोर्ट झाले नाही. कृपया पुन्हा प्रयत्न करा.",
 
   // --- date range sheet ---
   "dateRange.title": "तारीख श्रेणीनुसार फिल्टर करा",
@@ -1126,7 +1162,7 @@ const mr: Partial<Record<TranslationKey, string>> = {
   "adminScreens.exportPdf": "PDF निर्यात करा",
   "adminScreens.earningsDistribution": "कमाई वितरण",
   "adminScreens.nothingToExport": "निर्यात करण्यासाठी काहीही नाही",
-  "adminScreens.couldNotGeneratePdf": "PDF तयार करता आली नाही",
+  "adminScreens.couldNotGeneratePdf": "PDF तयार झाली नाही. कृपया पुन्हा प्रयत्न करा.",
   "adminScreens.manageShipments": "शिपमेंट व्यवस्थापन",
   "adminScreens.administration": "प्रशासन",
   "adminScreens.noShipments": "शिपमेंट सापडली नाही",

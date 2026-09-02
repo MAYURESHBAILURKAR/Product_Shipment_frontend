@@ -22,6 +22,7 @@ import {
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../src/utils/errors";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -68,7 +69,10 @@ export default function EditShipmentScreen() {
         setCart(initialCart);
       }
     } catch (error) {
-      showToast({ message: t("editShipment.loadFailed"), kind: "error" });
+      showToast({
+        message: getErrorMessage(error, t, "editShipment.loadFailed"),
+        kind: "error",
+      });
       router.back();
     } finally {
       setLoading(false);
@@ -131,7 +135,7 @@ export default function EditShipmentScreen() {
       router.back();
     } catch (error: any) {
       showToast({
-        message: error.response?.data?.message || t("common.updateFailed"),
+        message: getErrorMessage(error, t, "common.updateFailed"),
         kind: "error",
       });
     } finally {

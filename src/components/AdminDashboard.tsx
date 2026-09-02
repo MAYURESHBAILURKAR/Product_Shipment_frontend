@@ -38,6 +38,7 @@ import {
 import { palette, radius, shadow, spacing } from "../theme/tokens";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageProvider";
+import { getErrorMessage } from "../utils/errors";
 import { cachedGet } from "../utils/apiCache";
 
 // ⚠️ REPLACE WITH YOUR IP
@@ -267,7 +268,7 @@ export default function AdminDashboard() {
       fetchUsers();
     } catch (error: any) {
       showToast({
-        message: error.response?.data?.message || t("admin.operationFailed"),
+        message: getErrorMessage(error, t, "admin.operationFailed"),
         kind: "error",
       });
     } finally {

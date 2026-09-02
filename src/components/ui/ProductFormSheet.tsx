@@ -20,7 +20,8 @@ import Animated, {
 import { Input, Sheet, Text as TText } from "tamagui";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
-import { useLanguage } from "../../i18n/LanguageProvider";
+import { useLanguage, type TranslationKey } from "../../i18n/LanguageProvider";
+import { getErrorMessage } from "../../utils/errors";
 import { AppDialog, PressableScale, PrimaryButton, useDismissOnBack, useToast } from "./index";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
@@ -135,17 +136,12 @@ export function ProductFormSheet({
       });
       onSaved();
     } catch (error: any) {
-      // 409 = duplicate name+brand — surface the backend message.
-      if (error?.response?.status === 409) {
-        showToast({
-          message:
-            error.response.data?.message ||
-            t("products.duplicate", { name, brand }),
-          kind: "error",
-        });
-      } else {
-        showToast({ message: t("admin.operationFailed"), kind: "error" });
-      }
+      // Server messages win (duplicates read well); helper maps the rest
+      // (network / timeout / image-too-large / server busy).
+      showToast({
+        message: getErrorMessage(error, t, "admin.operationFailed"),
+        kind: "error",
+      });
     } finally {
       setUploading(false);
     }
@@ -237,6 +233,7 @@ export function ProductFormSheet({
       <ImageSourceDialog
         visible={showImageSource}
         hasImage={!!image}
+        t={t}
         onClose={() => setShowImageSource(false)}
         onCamera={() => {
           setShowImageSource(false);
@@ -257,10 +254,12 @@ export function ProductFormSheet({
 
 // Stacked action-sheet for choosing the image source (camera / gallery /
 // remove). Full-width rows read better than 3 buttons crammed in AppDialog's
-// single row.
+// single row. Takes `t` as a prop — it renders inside the Sheet portal, which
+// sits outside the LanguageProvider context (same reason SortSheet takes t).
 function ImageSourceDialog({
   visible,
   hasImage,
+  t,
   onClose,
   onCamera,
   onGallery,
@@ -268,12 +267,12 @@ function ImageSourceDialog({
 }: {
   visible: boolean;
   hasImage: boolean;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   onClose: () => void;
   onCamera: () => void;
   onGallery: () => void;
   onRemove: () => void;
 }) {
-  const { t } = useLanguage();
   const fade = useSharedValue(0);
   const card = useSharedValue(0);
 

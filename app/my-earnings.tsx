@@ -24,6 +24,7 @@ import {
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../src/utils/errors";
 import { cachedGet } from "../src/utils/apiCache";
 import {
   buildEarningsHtml,
@@ -189,7 +190,7 @@ export default function MyEarningsScreen() {
         );
       }
     } catch (error) {
-      showToast({ message: t("export.failed"), kind: "error" });
+      showToast({ message: getErrorMessage(error, t, "export.failed"), kind: "error" });
     }
   };
 

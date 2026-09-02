@@ -21,6 +21,7 @@ import {
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
 import { useLanguage } from "../../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../../src/utils/errors";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
 
@@ -47,7 +48,10 @@ export default function ViewProductScreen() {
       showToast({ message: t("products.removed"), kind: "success" });
       router.back();
     } catch (e) {
-      showToast({ message: t("products.couldNotDelete"), kind: "error" });
+      showToast({
+        message: getErrorMessage(e, t, "products.couldNotDelete"),
+        kind: "error",
+      });
     }
   };
 

@@ -22,6 +22,7 @@ import {
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../src/utils/errors";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -84,7 +85,10 @@ export default function AdminShipmentsScreen() {
         ),
       );
     } catch (error) {
-      showToast({ message: t("common.updateFailed"), kind: "error" });
+      showToast({
+        message: getErrorMessage(error, t, "common.updateFailed"),
+        kind: "error",
+      });
     }
   };
 

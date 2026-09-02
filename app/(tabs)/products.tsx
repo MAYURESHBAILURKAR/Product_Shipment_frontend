@@ -27,6 +27,7 @@ import {
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
 import { useLanguage } from "../../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../../src/utils/errors";
 import { cachedGet } from "../../src/utils/apiCache";
 
 // ⚠️ REPLACE WITH YOUR IP
@@ -153,7 +154,10 @@ export default function ProductsScreen() {
       showToast({ message: t("products.deleted"), kind: "success" });
       fetchProducts();
     } catch (e) {
-      showToast({ message: t("products.couldNotDelete"), kind: "error" });
+      showToast({
+        message: getErrorMessage(e, t, "products.couldNotDelete"),
+        kind: "error",
+      });
     }
   };
 

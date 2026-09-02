@@ -23,6 +23,7 @@ import { palette, radius, spacing } from "../src/theme/tokens";
 import { Input } from "tamagui";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../src/utils/errors";
 
 // ⚠️ REPLACE WITH YOUR LOCAL IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL
@@ -54,7 +55,7 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error(error);
       showToast({
-        message: error.response?.data?.message || t("auth.checkConnection"),
+        message: getErrorMessage(error, t, "auth.checkConnection"),
         kind: "error",
       });
       setLoading(false);

@@ -25,6 +25,7 @@ import {
 import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
 import { useLanguage } from "../../src/i18n/LanguageProvider";
+import { getErrorMessage } from "../../src/utils/errors";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -89,7 +90,7 @@ export default function ShipmentDetailsScreen() {
       setShipment(data);
     } catch (error) {
       console.error("Fetch Error:", error);
-      showToast({ message: t("detail.couldNotLoad"), kind: "error" });
+      showToast({ message: getErrorMessage(error, t, "detail.couldNotLoad"), kind: "error" });
       router.back();
     } finally {
       setLoading(false);
@@ -117,7 +118,10 @@ export default function ShipmentDetailsScreen() {
       showToast({ message: t("detail.markedAsPaid"), kind: "success" });
     } catch (error) {
       console.error("Mark paid error:", error);
-      showToast({ message: t("detail.couldNotUpdatePayment"), kind: "error" });
+      showToast({
+        message: getErrorMessage(error, t, "detail.couldNotUpdatePayment"),
+        kind: "error",
+      });
     } finally {
       setMarkingPaid(false);
       setPaidDialog(false);
