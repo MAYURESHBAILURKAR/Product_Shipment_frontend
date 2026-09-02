@@ -2,9 +2,11 @@ import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 import { palette, radius, spacing } from "../../theme/tokens";
+import { useLanguage } from "../../i18n/LanguageProvider";
+import type { TranslationKey } from "../../i18n/translations";
 import { PressableScale } from "./index";
 
-export type ExportFormat = "pdf" | "csv" | "copy";
+export type ExportFormat = "pdf" | "csv" | "copy" | "whatsapp";
 
 interface ExportSheetProps {
   visible: boolean;
@@ -18,12 +20,13 @@ interface ExportSheetProps {
 const OPTIONS: {
   format: ExportFormat;
   icon: string;
-  label: string;
-  hint: string;
+  labelKey: TranslationKey;
+  hintKey: TranslationKey;
 }[] = [
-  { format: "pdf", icon: "file-text", label: "PDF Statement", hint: "Printable, formatted report" },
-  { format: "csv", icon: "grid", label: "CSV Spreadsheet", hint: "For Excel / accounting" },
-  { format: "copy", icon: "copy", label: "Copy Summary", hint: "Paste into chat or notes" },
+  { format: "pdf", icon: "file-text", labelKey: "export.pdf", hintKey: "export.pdfHint" },
+  { format: "csv", icon: "grid", labelKey: "export.csv", hintKey: "export.csvHint" },
+  { format: "copy", icon: "copy", labelKey: "export.copy", hintKey: "export.copyHint" },
+  { format: "whatsapp", icon: "message-circle", labelKey: "export.whatsapp", hintKey: "export.whatsappHint" },
 ];
 
 // Bottom sheet for export options: PDF / CSV / copy. The parent supplies
@@ -36,6 +39,7 @@ export function ExportSheet({
   onFormat,
   disabled = false,
 }: ExportSheetProps) {
+  const { t } = useLanguage();
   if (!visible) return null;
 
   return (
@@ -75,8 +79,8 @@ export function ExportSheet({
                   <Feather name={opt.icon as any} size={18} color={palette.primaryBright} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.optionLabel}>{opt.label}</Text>
-                  <Text style={styles.optionHint}>{opt.hint}</Text>
+                  <Text style={styles.optionLabel}>{t(opt.labelKey)}</Text>
+                  <Text style={styles.optionHint}>{t(opt.hintKey)}</Text>
                 </View>
                 <Feather name="chevron-right" size={16} color={palette.textTertiary} />
               </PressableScale>

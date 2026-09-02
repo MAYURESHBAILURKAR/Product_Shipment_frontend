@@ -21,6 +21,7 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -29,6 +30,7 @@ export default function AdminShipmentsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -82,7 +84,7 @@ export default function AdminShipmentsScreen() {
         ),
       );
     } catch (error) {
-      showToast({ message: "Update failed", kind: "error" });
+      showToast({ message: t("common.updateFailed"), kind: "error" });
     }
   };
 
@@ -104,7 +106,7 @@ export default function AdminShipmentsScreen() {
               </Avatar>
               <View>
                 <Text style={styles.userName}>
-                  {item.sender?.name || "Unknown User"}
+                  {item.sender?.name || t("adminScreens.unknownUser")}
                 </Text>
                 <Text style={styles.dateText}>
                   {new Date(item.shippedAt).toDateString()}
@@ -127,11 +129,11 @@ export default function AdminShipmentsScreen() {
           {/* Stats */}
           <View style={styles.statsRow}>
             <View>
-              <Text style={styles.statLabel}>QUANTITY</Text>
+              <Text style={styles.statLabel}>{t("adminScreens.quantity")}</Text>
               <Text style={styles.statValue}>{item.totalQuantity}</Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.statLabel}>PAYOUT VALUE</Text>
+              <Text style={styles.statLabel}>{t("adminScreens.payoutValue")}</Text>
               <Text style={[styles.statValue, { color: palette.accent }]}>
                 ₹ {item.totalAmount}
               </Text>
@@ -162,7 +164,7 @@ export default function AdminShipmentsScreen() {
                   { color: isPending ? palette.success : palette.textTertiary },
                 ]}
               >
-                {isPending ? "Mark Received" : "Received"}
+                {isPending ? t("adminScreens.markReceived") : t("adminScreens.received")}
               </Text>
             </PressableScale>
 
@@ -188,7 +190,7 @@ export default function AdminShipmentsScreen() {
                   { color: isUnpaid ? palette.primaryBright : palette.textTertiary },
                 ]}
               >
-                {isUnpaid ? "Mark Paid" : "Paid"}
+                {isUnpaid ? t("adminScreens.markPaid") : t("adminScreens.paid")}
               </Text>
             </PressableScale>
           </View>
@@ -202,8 +204,8 @@ export default function AdminShipmentsScreen() {
       <View style={styles.flex}>
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="Manage Shipments"
-            subtitle="ADMINISTRATION"
+            title={t("adminScreens.manageShipments")}
+            subtitle={t("adminScreens.administration")}
             onBack={() => router.back()}
           />
         </View>
@@ -230,8 +232,8 @@ export default function AdminShipmentsScreen() {
               !loading ? (
                 <EmptyState
                   icon="inbox"
-                  title="No shipments found"
-                  message="All incoming shipments will appear here for approval."
+                  title={t("adminScreens.noShipments")}
+                  message={t("adminScreens.incomingMessage")}
                 />
               ) : null
             }

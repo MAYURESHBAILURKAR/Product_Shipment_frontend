@@ -1,7 +1,6 @@
 import { Feather } from "@expo/vector-icons";
-import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Dimensions,
   RefreshControl,
@@ -14,11 +13,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Avatar } from "tamagui";
 import { useAuth } from "../context/AuthContext";
 import { palette, radius, spacing } from "../theme/tokens";
+import { useLanguage } from "../i18n/LanguageProvider";
+import { cachedGet } from "../utils/apiCache";
 import {
+  OfflineBanner,
   PressableScale,
   PrimaryButton,
   RupeeIcon,
   SectionHeader,
+  Sparkline,
   StaggerItem,
   StatCard,
 } from "./ui";
@@ -27,21 +30,16 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const ACTIONS = [
-  { label: "New Ship", icon: "plus-circle", route: "/shipment-new", rupee: false },
-  { label: "Inventory", icon: "package", route: "/(tabs)/products", rupee: false },
-  { label: "Earnings", icon: "currency-rupee", route: "/my-earnings", rupee: true },
-  { label: "History", icon: "list", route: "/shipment-tracker", rupee: false },
+  { label: "dash.newShip", icon: "plus-circle", route: "/shipment-new", rupee: false },
+  { label: "dash.inventory", icon: "package", route: "/(tabs)/products", rupee: false },
+  { label: "dash.earnings", icon: "currency-rupee", route: "/my-earnings", rupee: true },
+  { label: "dash.history", icon: "list", route: "/shipment-tracker", rupee: false },
 ] as const;
-
-const greetingForHour = (hour: number) => {
-  if (hour < 12) return "GOOD MORNING,";
-  if (hour < 17) return "GOOD AFTERNOON,";
-  return "GOOD EVENING,";
-};
 
 export default function ProductionDashboard() {
   const { user } = useAuth();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [stats, setStats] = useState({
     stock: 0,
@@ -50,26 +48,39 @@ export default function ProductionDashboard() {
   });
   const [loading, setLoading] = useState(false);
 
-  // --- Fetch math preserved exactly ---
+  // Raw shipment list (same response as the stats fetch) — powers the
+  // weekly trend card without an extra request.
+  const [shipments, setShipments] = useState<any[]>([]);
+
+  // Offline resilience: shows the banner when stats came from cache.
+  const [staleSince, setStaleSince] = useState<number | null>(null);
+
+  // --- Fetch math preserved exactly (axios → cachedGet swap only) ---
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const productsRes = await axios.get(`${API_URL}/products/myproducts`, {
-        headers: { Authorization: `Bearer ${user?.token}` },
-      });
+      const productsRes = await cachedGet<any[]>(
+        "products:myproducts",
+        `${API_URL}/products/myproducts`,
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
       const totalStock = productsRes.data.reduce(
         (acc: number, item: any) => acc + item.currentStock,
         0,
       );
 
-      const shipmentsRes = await axios.get(`${API_URL}/shipments/myshipments`, {
-        headers: { Authorization: `Bearer ${user?.token}` },
-      });
+      const shipmentsRes = await cachedGet<any[]>(
+        "shipments:mine",
+        `${API_URL}/shipments/myshipments`,
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
       const totalEarnings = shipmentsRes.data.reduce(
         (acc: number, item: any) => acc + item.totalAmount,
         0,
       );
 
+      setStaleSince(productsRes.stale ? productsRes.savedAt : null);
+      setShipments(shipmentsRes.data);
       setStats({
         stock: totalStock,
         earnings: totalEarnings,
@@ -81,6 +92,29 @@ export default function ProductionDashboard() {
       setLoading(false);
     }
   };
+
+  // Last 7 days (oldest → newest) of units shipped — drives the sparkline.
+  const weeklyUnits = useMemo(() => {
+    const series = [0, 0, 0, 0, 0, 0, 0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const s of shipments) {
+      const d = new Date(s.shippedAt);
+      d.setHours(0, 0, 0, 0);
+      const diffDays = Math.round(
+        (today.getTime() - d.getTime()) / (24 * 60 * 60 * 1000),
+      );
+      if (diffDays >= 0 && diffDays < 7) {
+        series[6 - diffDays] += s.totalQuantity || 0;
+      }
+    }
+    return series;
+  }, [shipments]);
+
+  const weeklyTotal = useMemo(
+    () => weeklyUnits.reduce((a, b) => a + b, 0),
+    [weeklyUnits],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -103,6 +137,8 @@ export default function ProductionDashboard() {
         }
       >
         <View style={styles.wrap}>
+          {staleSince !== null && <OfflineBanner savedAt={staleSince} />}
+
           {/* 1. Header */}
           <StaggerItem index={0}>
             <View style={styles.headerRow}>
@@ -118,7 +154,11 @@ export default function ProductionDashboard() {
                 </Avatar>
                 <View>
                   <Text style={styles.greeting}>
-                    {greetingForHour(new Date().getHours())}
+                    {t(new Date().getHours() < 12
+                      ? "dash.goodMorning"
+                      : new Date().getHours() < 17
+                        ? "dash.goodAfternoon"
+                        : "dash.goodEvening")}
                   </Text>
                   <Text style={styles.name}>{user?.name?.split(" ")[0]}</Text>
                 </View>
@@ -141,7 +181,7 @@ export default function ProductionDashboard() {
             >
               <StatCard
                 icon="box"
-                label="IN STOCK"
+                label={t("dash.inStock")}
                 value={stats.stock}
                 preset="primary"
                 index={1}
@@ -149,7 +189,7 @@ export default function ProductionDashboard() {
               />
               <StatCard
                 icon="trending-up"
-                label="EARNINGS"
+                label={t("dash.earnings")}
                 value={stats.earnings}
                 prefix="₹"
                 preset="success"
@@ -159,6 +199,30 @@ export default function ProductionDashboard() {
               />
             </ScrollView>
           </View>
+
+          {/* 2.5 Weekly Trend Sparkline */}
+          <StaggerItem index={2}>
+            <View style={styles.trendCard}>
+              <View style={styles.trendHeader}>
+                <View style={styles.trendIconWrap}>
+                  <Feather name="activity" size={16} color={palette.primaryBright} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trendTitle}>{t("dash.thisWeek")}</Text>
+                  <Text style={styles.trendSub}>{t("dash.thisWeekSub")}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.trendValue}>{weeklyTotal}</Text>
+                  <Text style={styles.trendValueLabel}>{t("dash.units")}</Text>
+                </View>
+              </View>
+              <Sparkline
+                data={weeklyUnits}
+                width={SCREEN_WIDTH - spacing.xl * 2 - spacing.lg * 2}
+                height={56}
+              />
+            </View>
+          </StaggerItem>
 
           {/* 3. Action Grid */}
           <StaggerItem index={3} style={styles.actionGrid}>
@@ -177,7 +241,7 @@ export default function ProductionDashboard() {
                     color={palette.primaryBright}
                   />
                 )}
-                <Text style={styles.actionLabel}>{item.label}</Text>
+                <Text style={styles.actionLabel}>{t(item.label as any)}</Text>
               </PressableScale>
             ))}
           </StaggerItem>
@@ -185,8 +249,8 @@ export default function ProductionDashboard() {
           {/* 4. Shipment Summary */}
           <StaggerItem index={4}>
             <SectionHeader
-              label="Recent Activity"
-              actionLabel="View All"
+              label={t("dash.recentActivity")}
+              actionLabel={t("dash.viewAll")}
               onAction={() => router.push("/shipment-tracker")}
             />
             <View style={styles.summaryCard}>
@@ -199,8 +263,8 @@ export default function ProductionDashboard() {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.summaryTitle}>Total Shipments</Text>
-                  <Text style={styles.summarySub}>Historical volume</Text>
+                  <Text style={styles.summaryTitle}>{t("dash.totalShipments")}</Text>
+                  <Text style={styles.summarySub}>{t("dash.historicalVolume")}</Text>
                 </View>
                 <Text style={styles.summaryValue}>{stats.shipmentCount}</Text>
               </View>
@@ -210,8 +274,8 @@ export default function ProductionDashboard() {
                   <RupeeIcon size={17} color={palette.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.summaryTitle}>Payout Rate</Text>
-                  <Text style={styles.summarySub}>Standard unit price</Text>
+                  <Text style={styles.summaryTitle}>{t("dash.payoutRate")}</Text>
+                  <Text style={styles.summarySub}>{t("dash.standardUnitPrice")}</Text>
                 </View>
                 <Text style={[styles.summaryValue, { color: palette.accent }]}>
                   ₹ {user?.priceAllotted}
@@ -223,15 +287,16 @@ export default function ProductionDashboard() {
           {/* 5. Production CTA Banner */}
           <StaggerItem index={5}>
             <View style={styles.ctaCard}>
-              <Text style={styles.ctaTitle}>Inventory Ready?</Text>
+              <Text style={styles.ctaTitle}>{t("dash.ctaTitle")}</Text>
               <Text style={styles.ctaBody}>
-                You currently have{" "}
-                <Text style={styles.ctaHighlight}>{stats.stock} items</Text>{" "}
-                processed. Create a shipment to move them to the warehouse and
-                update your earnings.
+                {t("dash.ctaBodyA")}
+                <Text style={styles.ctaHighlight}>
+                  {stats.stock} {t("dash.ctaBodyItems")}
+                </Text>
+                {t("dash.ctaBodyB")}
               </Text>
               <PrimaryButton
-                label="Start Shipment Process"
+                label={t("dash.ctaButton")}
                 icon="arrow-right"
                 size="lg"
                 onPress={() => router.push("/shipment-new")}
@@ -279,6 +344,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  trendCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  trendHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  trendIconWrap: {
+    backgroundColor: palette.primarySoft,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+  },
+  trendTitle: { color: palette.text, fontWeight: "700", fontSize: 14 },
+  trendSub: { color: palette.textSecondary, fontSize: 11.5, marginTop: 1 },
+  trendValue: {
+    color: palette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  trendValueLabel: {
+    color: palette.textTertiary,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginTop: 1,
   },
   actionTile: {
     flex: 1,

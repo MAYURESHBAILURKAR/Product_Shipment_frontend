@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import ViewShot from "react-native-view-shot";
 import { palette, radius, spacing } from "../../theme/tokens";
+import { useLanguage } from "../../i18n/LanguageProvider";
 import { PressableScale, PrimaryButton, useToast } from "./index";
 
 export interface ShareShipmentItem {
@@ -49,6 +50,7 @@ export function ShareShipmentModal({
   const [copied, setCopied] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const handleShareImage = async () => {
     try {
@@ -60,7 +62,7 @@ export function ShareShipmentModal({
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         showToast({
-          message: "Sharing not available on this device.",
+          message: t("newShipment.shareUnavailable"),
           kind: "error",
         });
         return;
@@ -68,13 +70,13 @@ export function ShareShipmentModal({
 
       await Sharing.shareAsync(uri, {
         mimeType: "image/png",
-        dialogTitle: "Share shipment image",
+        dialogTitle: t("newShipment.shareImage"),
         UTI: "public.png",
       });
     } catch (err) {
       console.error(err);
       showToast({
-        message: "Failed to generate or share the shipment image.",
+        message: t("newShipment.shareFailed"),
         kind: "error",
       });
     } finally {
@@ -106,7 +108,7 @@ ${itemsList}`;
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error(err);
-      showToast({ message: "Failed to copy shipment details.", kind: "error" });
+      showToast({ message: t("newShipment.copyFailed"), kind: "error" });
     }
   };
 
@@ -133,7 +135,7 @@ ${itemsList}`;
               <View style={styles.receiptHeader}>
                 <Text style={styles.receiptTitle}>{heading}</Text>
                 {ownerName ? (
-                  <Text style={styles.receiptSub}>Owner: {ownerName}</Text>
+                  <Text style={styles.receiptSub}>{t("newShipment.owner")}{ownerName}</Text>
                 ) : null}
               </View>
 
@@ -151,7 +153,7 @@ ${itemsList}`;
                       {item.name}
                     </Text>
                     <Text style={styles.receiptProductMeta}>
-                      {item.quantity} pcs
+                      {item.quantity} {t("newShipment.pcs")}
                       {item.value != null ? ` · ₹${item.value}` : ""}
                     </Text>
                   </View>
@@ -160,7 +162,7 @@ ${itemsList}`;
 
               <View style={styles.receiptFooter}>
                 <Text style={styles.receiptTotalLabel}>
-                  Total: {totalItems} pcs
+                  {t("newShipment.total")}{totalItems} {t("newShipment.pcs")}
                 </Text>
                 <Text style={styles.receiptTotalValue}>
                   ₹ {totalValue.toFixed(2)}
@@ -183,23 +185,21 @@ ${itemsList}`;
               <Text
                 style={[styles.copyBtnText, copied && { color: palette.success }]}
               >
-                {copied ? "Copied!" : "Copy Details"}
+                {copied ? t("newShipment.copied") : t("newShipment.copyDetails")}
               </Text>
             </PressableScale>
 
             <PrimaryButton
-              label="Share Image"
+              label={t("newShipment.shareImage")}
               icon="image"
               loading={sharing}
               onPress={handleShareImage}
             />
 
-            <Text style={styles.tipText}>
-              Tip: Copy Details first, then Share Image and paste as caption
-            </Text>
+            <Text style={styles.tipText}>{t("newShipment.shareTip")}</Text>
 
             <PressableScale hapticFeedback onPress={onClose} style={styles.skipBtn}>
-              <Text style={styles.skipText}>Skip</Text>
+              <Text style={styles.skipText}>{t("common.skip")}</Text>
             </PressableScale>
           </View>
         </ScrollView>

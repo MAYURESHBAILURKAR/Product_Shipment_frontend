@@ -11,6 +11,7 @@ import {
 import { Input, Sheet, Text as TText } from "tamagui";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../i18n/LanguageProvider";
 import { AppDialog, PressableScale, PrimaryButton, useDismissOnBack, useToast } from "./index";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
@@ -33,6 +34,7 @@ export function ProductFormSheet({
 }: ProductFormSheetProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [name, setName] = useState(product?.name || "");
   const [brand, setBrand] = useState(product?.brand || "");
@@ -65,7 +67,7 @@ export function ProductFormSheet({
 
   const handleSave = async () => {
     if (!name || !brand) {
-      showToast({ message: "Name and Brand required", kind: "error" });
+      showToast({ message: t("products.nameBrandRequired"), kind: "error" });
       return;
     }
 
@@ -103,12 +105,12 @@ export function ProductFormSheet({
       else await axios.post(API_URL, formData, config);
       onOpenChange(false);
       showToast({
-        message: product ? "Product updated" : "Product created",
+        message: product ? t("products.productUpdated") : t("products.productCreated"),
         kind: "success",
       });
       onSaved();
     } catch (error) {
-      showToast({ message: "Operation failed", kind: "error" });
+      showToast({ message: t("admin.operationFailed"), kind: "error" });
     } finally {
       setUploading(false);
     }
@@ -126,7 +128,7 @@ export function ProductFormSheet({
       <Sheet.Frame padding="$4" gap="$4" backgroundColor={palette.surfaceElevated}>
         <Sheet.Handle />
         <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center">
-          {product ? "Edit Product" : "New Product"}
+          {product ? t("products.editProduct") : t("products.newProduct")}
         </TText>
 
         <View style={{ alignItems: "center", marginBottom: 8 }}>
@@ -141,12 +143,12 @@ export function ProductFormSheet({
                 <Feather name="camera" size={28} color={palette.textTertiary} />
               )}
             </View>
-            <Text style={styles.changeImage}>Change Image</Text>
+            <Text style={styles.changeImage}>{t("products.changeImage")}</Text>
           </PressableScale>
         </View>
 
         <Input
-          placeholder="Product Name"
+          placeholder={t("products.productName")}
           value={name}
           onChangeText={setName}
           backgroundColor={palette.surfaceHighest}
@@ -155,7 +157,7 @@ export function ProductFormSheet({
           borderColor={palette.border}
         />
         <Input
-          placeholder="Brand"
+          placeholder={t("products.brandLabel")}
           value={brand}
           onChangeText={setBrand}
           backgroundColor={palette.surfaceHighest}
@@ -165,7 +167,7 @@ export function ProductFormSheet({
         />
 
         <PrimaryButton
-          label={product ? "Update Product" : "Create Product"}
+          label={product ? t("products.updateProductBtn") : t("products.createProductBtn")}
           loading={uploading}
           onPress={handleSave}
         />
@@ -174,18 +176,18 @@ export function ProductFormSheet({
       {/* Update confirm */}
       <AppDialog
         visible={confirmUpdate}
-        title="Update Product"
-        message={`Save changes to "${product?.name}"?`}
+        title={t("products.updateProductBtn")}
+        message={t("products.saveChangesTo", { name: product?.name ?? "" })}
         kind="default"
         icon="save"
         buttons={[
           {
-            label: "Cancel",
+            label: t("common.cancel"),
             style: "cancel",
             onPress: () => setConfirmUpdate(false),
           },
           {
-            label: "Update",
+            label: t("products.updateBtn"),
             style: "confirm",
             onPress: () => {
               setConfirmUpdate(false);

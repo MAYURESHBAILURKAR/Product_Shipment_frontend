@@ -31,6 +31,7 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -42,6 +43,7 @@ export default function NewShipmentScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [products, setProducts] = useState<any[]>([]);
   const [cart, setCart] = useState<{ [key: string]: number }>({});
@@ -170,7 +172,7 @@ Please approve this in the Admin App.`;
   // --- Submit preserved exactly ---
   const handleSubmit = async () => {
     if (totalItems === 0) {
-      showToast({ message: "Please add at least one item.", kind: "error" });
+      showToast({ message: t("newShipment.addAtLeastOne"), kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -193,7 +195,7 @@ Please approve this in the Admin App.`;
     } catch (error: any) {
       setSubmitting(false);
       showToast({
-        message: error.response?.data?.message || "Failed to send shipment",
+        message: error.response?.data?.message || t("newShipment.failedToSend"),
         kind: "error",
       });
     }
@@ -211,7 +213,7 @@ Please approve this in the Admin App.`;
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         showToast({
-          message: "Sharing not available on this device",
+          message: t("newShipment.shareUnavailable"),
           kind: "error",
         });
         return;
@@ -219,13 +221,13 @@ Please approve this in the Admin App.`;
 
       await Sharing.shareAsync(uri, {
         mimeType: "image/png",
-        dialogTitle: "Share shipment image",
+        dialogTitle: t("newShipment.shareImage"),
         UTI: "public.png",
       });
     } catch (err) {
       console.error(err);
       showToast({
-        message: "Failed to generate or share the shipment image.",
+        message: t("newShipment.shareFailed"),
         kind: "error",
       });
     } finally {
@@ -247,7 +249,7 @@ Please approve this in the Admin App.`;
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error(err);
-      showToast({ message: "Failed to copy shipment details.", kind: "error" });
+      showToast({ message: t("newShipment.copyFailed"), kind: "error" });
     }
   };
 
@@ -308,7 +310,7 @@ Please approve this in the Admin App.`;
                     item.currentStock < 500 && { color: palette.danger },
                   ]}
                 >
-                  Stock: {item.currentStock}
+                  {t("newShipment.stockLabel")}{item.currentStock}
                 </Text>
 
                 {/* Stepper */}
@@ -348,8 +350,8 @@ Please approve this in the Admin App.`;
         {/* Header */}
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="Select Products"
-            subtitle="NEW SHIPMENT"
+            title={t("newShipment.selectProducts")}
+            subtitle={t("newShipment.newShipment")}
             onBack={() => router.back()}
           />
         </View>
@@ -362,7 +364,7 @@ Please approve this in the Admin App.`;
               flex={1}
               backgroundColor="transparent"
               borderWidth={0}
-              placeholder="Search products..."
+              placeholder={t("newShipment.searchPlaceholder")}
               placeholderTextColor="$gray10"
               color={palette.text}
               value={searchQuery}
@@ -388,12 +390,14 @@ Please approve this in the Admin App.`;
 
         <View style={styles.listMeta}>
           <Text style={styles.listMetaLabel}>
-            {showSelectedOnly ? "SELECTED ITEMS" : "AVAILABLE ITEMS"}
+            {showSelectedOnly
+              ? t("newShipment.selectedItems")
+              : t("newShipment.availableItems")}
           </Text>
           {totalItems > 0 && (
             <Text style={styles.selectedCount}>
-              {Object.keys(cart).filter((k) => cart[k] > 0).length} Product(s)
-              Selected
+              {Object.keys(cart).filter((k) => cart[k] > 0).length}{" "}
+              {t("newShipment.productsSelected")}
             </Text>
           )}
         </View>
@@ -415,11 +419,15 @@ Please approve this in the Admin App.`;
               !loading ? (
                 <EmptyState
                   icon="package"
-                  title={showSelectedOnly ? "Nothing selected" : "No products found"}
+                  title={
+                    showSelectedOnly
+                      ? t("newShipment.nothingSelected")
+                      : t("products.noProducts")
+                  }
                   message={
                     showSelectedOnly
-                      ? "Tap the + stepper on a product to add it."
-                      : "Add products from the Products tab first."
+                      ? t("newShipment.tapToAdd")
+                      : t("newShipment.addProductsFirst")
                   }
                 />
               ) : null
@@ -431,13 +439,13 @@ Please approve this in the Admin App.`;
         <View style={styles.footer}>
           <View style={styles.footerStats}>
             <View>
-              <Text style={styles.footerLabel}>ESTIMATED PAYOUT</Text>
+              <Text style={styles.footerLabel}>{t("newShipment.estimatedPayout")}</Text>
               <Text style={styles.footerPayout}>
                 ₹ {estimatedPayout.toFixed(2)}
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.footerLabel}>TOTAL ITEMS</Text>
+              <Text style={styles.footerLabel}>{t("newShipment.totalItems")}</Text>
               <Text style={styles.footerItems}>{totalItems}</Text>
             </View>
           </View>
@@ -449,7 +457,7 @@ Please approve this in the Admin App.`;
           </View>
 
           <PrimaryButton
-            label="Confirm & Send"
+            label={t("newShipment.confirmSend")}
             icon="arrow-right"
             size="lg"
             loading={submitting}
@@ -471,8 +479,8 @@ Please approve this in the Admin App.`;
           >
             <View style={styles.receipt}>
               <View style={styles.receiptHeader}>
-                <Text style={styles.receiptTitle}>New Shipment</Text>
-                <Text style={styles.receiptSub}>Owner: {user?.name}</Text>
+                <Text style={styles.receiptTitle}>{t("newShipment.receiptTitle")}</Text>
+                <Text style={styles.receiptSub}>{t("newShipment.owner")}{user?.name}</Text>
               </View>
 
               {cartItems.map(({ product, qty, value }) => (
@@ -488,7 +496,7 @@ Please approve this in the Admin App.`;
                       {product.brand} - {product.name}
                     </Text>
                     <Text style={styles.receiptProductMeta}>
-                      {qty} pcs · ₹{value}
+                      {qty} {t("newShipment.pcs")} · ₹{value}
                     </Text>
                   </View>
                 </View>
@@ -496,7 +504,7 @@ Please approve this in the Admin App.`;
 
               <View style={styles.receiptFooter}>
                 <Text style={styles.receiptTotalLabel}>
-                  Total: {totalItems} pcs
+                  {t("newShipment.total")}{totalItems} {t("newShipment.pcs")}
                 </Text>
                 <Text style={styles.receiptTotalValue}>
                   ₹ {estimatedPayout.toFixed(2)}
@@ -522,19 +530,19 @@ Please approve this in the Admin App.`;
                   copied && { color: palette.success },
                 ]}
               >
-                {copied ? "Copied!" : "Copy Details"}
+                {copied ? t("newShipment.copied") : t("newShipment.copyDetails")}
               </Text>
             </PressableScale>
 
             <PrimaryButton
-              label="Share Image"
+              label={t("newShipment.shareImage")}
               icon="image"
               loading={sharing}
               onPress={handleShareImage}
             />
 
             <Text style={styles.tipText}>
-              Tip: Copy Details first, then Share Image and paste as caption
+              {t("newShipment.shareTip")}
             </Text>
 
             <PressableScale
@@ -542,7 +550,7 @@ Please approve this in the Admin App.`;
               onPress={handleSkipShare}
               style={styles.skipBtn}
             >
-              <Text style={styles.skipText}>Skip</Text>
+              <Text style={styles.skipText}>{t("common.skip")}</Text>
             </PressableScale>
           </View>
         </View>

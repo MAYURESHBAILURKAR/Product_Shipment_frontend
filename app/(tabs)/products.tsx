@@ -18,6 +18,7 @@ import { Input } from "tamagui";
 import {
   AppDialog,
   EmptyState,
+  OfflineBanner,
   PressableScale,
   ProductFormSheet,
   StaggerItem,
@@ -25,6 +26,8 @@ import {
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
+import { useLanguage } from "../../src/i18n/LanguageProvider";
+import { cachedGet } from "../../src/utils/apiCache";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
@@ -64,11 +67,15 @@ export default function ProductsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
-  const [products, setProducts] = useState([]);
+  const { t } = useLanguage();
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("all");
+
+  // Offline resilience: shows the banner when the grid came from cache.
+  const [staleSince, setStaleSince] = useState<number | null>(null);
 
   // Sheet State
   const [openSheet, setOpenSheet] = useState(false);
@@ -81,14 +88,15 @@ export default function ProductsScreen() {
     fetchProducts();
   }, []);
 
-  // --- Fetch logic preserved exactly ---
+  // --- Fetch logic preserved exactly (axios → cachedGet swap only) ---
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${API_URL}/myproducts`, {
+      const res = await cachedGet<any[]>("products:myproducts", `${API_URL}/myproducts`, {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
-      setProducts(data);
+      setStaleSince(res.stale ? res.savedAt : null);
+      setProducts(res.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -142,10 +150,10 @@ export default function ProductsScreen() {
       await axios.delete(`${API_URL}/${id}`, {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
-      showToast({ message: "Product deleted", kind: "success" });
+      showToast({ message: t("products.deleted"), kind: "success" });
       fetchProducts();
     } catch (e) {
-      showToast({ message: "Could not delete", kind: "error" });
+      showToast({ message: t("products.couldNotDelete"), kind: "error" });
     }
   };
 
@@ -176,7 +184,7 @@ export default function ProductsScreen() {
             </View>
             {isLowStock && (
               <View style={styles.lowStockBadge}>
-                <Text style={styles.lowStockText}>Low Stock</Text>
+                <Text style={styles.lowStockText}>{t("products.lowStock")}</Text>
               </View>
             )}
           </View>
@@ -189,7 +197,7 @@ export default function ProductsScreen() {
 
             <View style={styles.cardFooter}>
               <Text style={styles.stockLabel}>
-                Stock:{" "}
+                {t("products.stock")}
                 <Text style={[styles.stockValue, isLowStock && { color: palette.warning }]}>
                   {item.currentStock}
                 </Text>
@@ -221,7 +229,7 @@ export default function ProductsScreen() {
         {/* Header with Search */}
         <StaggerItem index={0} style={styles.header}>
           <View style={styles.headerRow}>
-            <Text style={styles.heading}>My Products</Text>
+            <Text style={styles.heading}>{t("products.myProducts")}</Text>
             <PressableScale style={styles.bellBtn}>
               <Feather name="bell" size={20} color={palette.text} />
             </PressableScale>
@@ -234,7 +242,7 @@ export default function ProductsScreen() {
               flex={1}
               backgroundColor="transparent"
               borderWidth={0}
-              placeholder="Search SKU, Name, or Brand..."
+              placeholder={t("products.searchPlaceholder")}
               placeholderTextColor="$gray10"
               color={palette.text}
               value={searchQuery}
@@ -263,7 +271,7 @@ export default function ProductsScreen() {
                     selectedBrand === "all" && styles.brandChipTextActive,
                   ]}
                 >
-                  All
+                  {t("common.all")}
                 </Text>
               </PressableScale>
               {brands.map((brand) => {
@@ -289,6 +297,12 @@ export default function ProductsScreen() {
             </ScrollView>
           )}
         </StaggerItem>
+
+        {staleSince !== null && (
+          <View style={styles.bannerWrap}>
+            <OfflineBanner savedAt={staleSince} />
+          </View>
+        )}
 
         {loading && products.length === 0 ? (
           <View style={styles.gridSkeleton}>
@@ -327,13 +341,13 @@ export default function ProductsScreen() {
               !loading ? (
                 <EmptyState
                   icon="package"
-                  title="No products found"
+                  title={t("products.noProducts")}
                   message={
                     searchQuery
-                      ? "No products match your search."
-                      : "Add your first product to start tracking inventory."
+                      ? t("products.noProductsSearch")
+                      : t("products.addFirst")
                   }
-                  actionLabel="Add Product"
+                  actionLabel={t("products.addProduct")}
                   onAction={openCreateMode}
                 />
               ) : null
@@ -357,17 +371,17 @@ export default function ProductsScreen() {
         {/* Delete confirm */}
         <AppDialog
           visible={deleteTarget != null}
-          title="Delete Product"
-          message={`Delete "${deleteTarget?.name}"? This can't be undone.`}
+          title={t("products.deleteProduct")}
+          message={t("products.deleteConfirm", { name: deleteTarget?.name ?? "" })}
           kind="danger"
           icon="trash-2"
           buttons={[
             {
-              label: "Cancel",
+              label: t("common.cancel"),
               style: "cancel",
               onPress: () => setDeleteTarget(null),
             },
-            { label: "Delete", style: "danger", onPress: performDelete },
+            { label: t("common.delete"), style: "danger", onPress: performDelete },
           ]}
         />
       </View>
@@ -377,6 +391,7 @@ export default function ProductsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  bannerWrap: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

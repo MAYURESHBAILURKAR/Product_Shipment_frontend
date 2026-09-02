@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   EmptyState,
   ListRow,
+  OfflineBanner,
   PressableScale,
   ShareShipmentModal,
   SkeletonListRow,
@@ -23,6 +24,8 @@ import {
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
+import { useLanguage } from "../../src/i18n/LanguageProvider";
+import { cachedGet } from "../../src/utils/apiCache";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -31,10 +34,14 @@ export default function ShipmentHistoryScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
-  const [shipments, setShipments] = useState([]);
+  const [shipments, setShipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Offline resilience: shows the banner when the list came from cache.
+  const [staleSince, setStaleSince] = useState<number | null>(null);
 
   // Share modal state
   const [shareTarget, setShareTarget] = useState<any>(null);
@@ -51,22 +58,25 @@ export default function ShipmentHistoryScreen() {
       setShareTarget(data);
     } catch (error) {
       console.error(error);
-      showToast({ message: "Could not load shipment for sharing.", kind: "error" });
+      showToast({ message: t("detail.couldNotLoad"), kind: "error" });
     } finally {
       setShareLoading(false);
     }
   };
 
-  // --- Fetch/sort logic preserved exactly ---
+  // --- Fetch/sort logic preserved exactly (axios → cachedGet swap only) ---
   const fetchHistory = async () => {
     try {
       if (!refreshing) setLoading(true);
-      const { data } = await axios.get(`${API_URL}/shipments/myshipments`, {
-        headers: { Authorization: `Bearer ${user?.token}` },
-      });
+      const res = await cachedGet<any[]>(
+        "shipments:mine",
+        `${API_URL}/shipments/myshipments`,
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
+      setStaleSince(res.stale ? res.savedAt : null);
       // Sort: Newest first
       setShipments(
-        data.sort(
+        res.data.sort(
           (a: any, b: any) =>
             new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime(),
         ),
@@ -105,8 +115,8 @@ export default function ShipmentHistoryScreen() {
             </Text>
           </View>
         }
-        title={`${item.totalQuantity} Units`}
-        subtitle={`${item.items.length} Product Types`}
+        title={`${item.totalQuantity} ${t("shipments.units")}`}
+        subtitle={`${item.items.length} ${t("shipments.productTypes")}`}
         trailing={
           <View style={styles.trailingWrap}>
             <View style={styles.badgeRow}>
@@ -130,11 +140,11 @@ export default function ShipmentHistoryScreen() {
                   }
                 >
                   <Feather name="edit-2" size={13} color="#FFFFFF" />
-                  <Text style={styles.editBtnText}>Edit</Text>
+                  <Text style={styles.editBtnText}>{t("common.edit")}</Text>
                 </PressableScale>
               ) : (
                 <View style={styles.payoutCol}>
-                  <Text style={styles.payoutLabel}>TOTAL PAYOUT</Text>
+                  <Text style={styles.payoutLabel}>{t("detail.payout")}</Text>
                   <Text style={styles.payoutValue}>₹ {item.totalAmount}</Text>
                 </View>
               )}
@@ -160,8 +170,8 @@ export default function ShipmentHistoryScreen() {
         {/* Header */}
         <StaggerItem index={0} style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.overviewLabel}>OVERVIEW</Text>
-            <Text style={styles.heading}>Shipment History</Text>
+            <Text style={styles.overviewLabel}>{t("shipments.overview")}</Text>
+            <Text style={styles.heading}>{t("shipments.history")}</Text>
           </View>
           <PressableScale
             hapticFeedback
@@ -174,6 +184,12 @@ export default function ShipmentHistoryScreen() {
             <Feather name="refresh-cw" size={17} color={palette.textSecondary} />
           </PressableScale>
         </StaggerItem>
+
+        {staleSince !== null && (
+          <View style={styles.bannerWrap}>
+            <OfflineBanner savedAt={staleSince} />
+          </View>
+        )}
 
         {/* List */}
         {loading && shipments.length === 0 ? (
@@ -204,9 +220,9 @@ export default function ShipmentHistoryScreen() {
               !loading ? (
                 <EmptyState
                   icon="inbox"
-                  title="No shipments found"
-                  message="Your shipment history will appear here once you create one."
-                  actionLabel="New Shipment"
+                  title={t("shipments.noShipments")}
+                  message={t("shipments.emptyMessage")}
+                  actionLabel={t("shipments.newShipment")}
                   onAction={() => router.push("/shipment-new")}
                 />
               ) : null
@@ -287,6 +303,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   skeletonWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  bannerWrap: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
   dateBadge: {
     flexDirection: "row",
     alignItems: "center",

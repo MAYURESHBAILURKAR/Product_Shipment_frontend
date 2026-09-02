@@ -23,11 +23,13 @@ import {
   EmptyState,
   GradientCard,
   ListRow,
+  OfflineBanner,
   PressableScale,
   PrimaryButton,
   RupeeIcon,
   SectionHeader,
   SkeletonListRow,
+  Sparkline,
   StaggerItem,
   StatCard,
   useDismissOnBack,
@@ -35,6 +37,8 @@ import {
 } from "./ui";
 import { palette, radius, shadow, spacing } from "../theme/tokens";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../i18n/LanguageProvider";
+import { cachedGet } from "../utils/apiCache";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -85,6 +89,7 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   // Data State
   const [users, setUsers] = useState<any[]>([]);
@@ -116,16 +121,19 @@ export default function AdminDashboard() {
   const [allShipments, setAllShipments] = useState<any[]>([]);
   const [chartMode, setChartMode] = useState<"W" | "M">("W");
 
+  // Offline resilience: shows the banner when lists came from cache.
+  const [staleSince, setStaleSince] = useState<number | null>(null);
+
   useDismissOnBack(openSheet, () => setOpenSheet(false));
 
-  // --- Fetch logic preserved exactly ---
+  // --- Fetch logic preserved exactly (axios → cachedGet swap only) ---
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${API_URL}/users`, {
+      const res = await cachedGet<any[]>("users", `${API_URL}/users`, {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
-      setUsers(data);
+      setUsers(res.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -156,10 +164,13 @@ export default function AdminDashboard() {
 
   const fetchAllShipments = async () => {
     try {
-      const { data } = await axios.get(`${API_URL}/shipments`, {
-        headers: { Authorization: `Bearer ${user?.token}` },
-      });
-      setAllShipments(data);
+      const res = await cachedGet<any[]>(
+        "shipments:all",
+        `${API_URL}/shipments`,
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
+      setAllShipments(res.data);
+      setStaleSince(res.stale ? res.savedAt : null);
     } catch (error) {
       console.error("Shipment fetch error:", error);
     }
@@ -219,7 +230,7 @@ export default function AdminDashboard() {
   const handleSaveUser = async () => {
     if (!name || !email || !price) {
       showToast({
-        message: "Name, Email, and Price Rate are required.",
+        message: t("admin.requiredFields"),
         kind: "error",
       });
       return;
@@ -240,23 +251,23 @@ export default function AdminDashboard() {
         await axios.put(`${API_URL}/users/${editingUser._id}`, payload, {
           headers: { Authorization: `Bearer ${user?.token}` },
         });
-        showToast({ message: "User Updated", kind: "success" });
+        showToast({ message: t("admin.userUpdated"), kind: "success" });
       } else {
         if (!password) {
-          showToast({ message: "Password is required for new users", kind: "error" });
+          showToast({ message: t("admin.passwordRequired"), kind: "error" });
           setUploading(false);
           return;
         }
         await axios.post(`${API_URL}/users`, payload, {
           headers: { Authorization: `Bearer ${user?.token}` },
         });
-        showToast({ message: "User Created", kind: "success" });
+        showToast({ message: t("admin.userCreated"), kind: "success" });
       }
       setOpenSheet(false);
       fetchUsers();
     } catch (error: any) {
       showToast({
-        message: error.response?.data?.message || "Operation failed",
+        message: error.response?.data?.message || t("admin.operationFailed"),
         kind: "error",
       });
     } finally {
@@ -340,7 +351,7 @@ export default function AdminDashboard() {
         </View>
       }
       title={item.name}
-      subtitle={`${item.locality || "No Locality"} • ₹${item.priceAllotted}/unit`}
+      subtitle={`${item.locality || t("admin.noLocality")} • ₹${item.priceAllotted}/unit`}
       trailing={
         <View style={styles.editIcon}>
           <Feather name="edit-2" size={16} color={palette.primaryBright} />
@@ -365,6 +376,8 @@ export default function AdminDashboard() {
           <FlatList
             ListHeaderComponent={
               <View style={styles.headerWrap}>
+                {staleSince !== null && <OfflineBanner savedAt={staleSince} />}
+
                 {/* 1. Header with Avatar */}
                 <StaggerItem index={0}>
                   <View style={styles.headerRow}>
@@ -372,7 +385,7 @@ export default function AdminDashboard() {
                       <Text style={styles.dateLabel}>
                         {new Date().toDateString()}
                       </Text>
-                      <Text style={styles.heading}>Dashboard</Text>
+                      <Text style={styles.heading}>{t("admin.dashboard")}</Text>
                     </View>
                     <PressableScale onPress={() => router.push("/profile")}>
                       <Avatar circular size="$5">
@@ -394,7 +407,7 @@ export default function AdminDashboard() {
                   >
                     <StatCard
                       icon="users"
-                      label="Total Users"
+                      label={t("admin.totalUsers")}
                       value={users.length}
                       preset="primary"
                       index={0}
@@ -402,22 +415,22 @@ export default function AdminDashboard() {
                     <GradientCard
                       preset="accent"
                       icon="truck"
-                      label="Shipments"
-                      value="Manage"
+                      label={t("admin.shipments")}
+                      value={t("admin.manage")}
                       onPress={() => router.push("/admin-shipments")}
                     />
                     <GradientCard
                       preset="success"
                       icon="bar-chart-2"
-                      label="Analytics"
-                      value="Reports"
+                      label={t("admin.analytics")}
+                      value={t("admin.reports")}
                       onPress={() => router.push("/admin-reports")}
                     />
                     <GradientCard
                       preset="hero"
                       icon="file-text"
-                      label="Logs"
-                      value="History"
+                      label={t("admin.logs")}
+                      value={t("dash.history")}
                       onPress={() => router.push("/shipment-tracker")}
                     />
                   </ScrollView>
@@ -433,7 +446,7 @@ export default function AdminDashboard() {
                     <AttentionChip
                       icon="clock"
                       count={attention.pendingShipments}
-                      label="Pending Shipments"
+                      label={t("admin.pendingShipments")}
                       tint={palette.warning}
                       onPress={() => router.push("/shipment-tracker")}
                     />
@@ -441,14 +454,14 @@ export default function AdminDashboard() {
                       icon="activity"
                       rupee
                       count={attention.unpaidPayouts}
-                      label="Unpaid Payouts"
+                      label={t("admin.unpaidPayouts")}
                       tint={palette.accent}
                       onPress={() => router.push("/shipment-tracker")}
                     />
                     <AttentionChip
                       icon="user-x"
                       count={attention.inactiveUsers}
-                      label="Inactive Users"
+                      label={t("admin.inactiveUsers")}
                       tint={palette.danger}
                       onPress={() => setFilterTab("Inactive")}
                     />
@@ -459,7 +472,7 @@ export default function AdminDashboard() {
                 <StaggerItem index={3}>
                   <View style={styles.chartCard}>
                     <View style={styles.chartHeader}>
-                      <Text style={styles.chartTitle}>Production Trend</Text>
+                      <Text style={styles.chartTitle}>{t("admin.productionTrend")}</Text>
                       <View style={styles.pillRow}>
                         {(["W", "M"] as const).map((label) => (
                           <PressableScale
@@ -482,6 +495,14 @@ export default function AdminDashboard() {
                           </PressableScale>
                         ))}
                       </View>
+                    </View>
+                    {/* Slim trend strip mirroring the active mode's series */}
+                    <View style={styles.sparkStrip}>
+                      <Sparkline
+                        data={displayData.datasets[0].data}
+                        width={SCREEN_WIDTH - 64 - spacing.lg * 2}
+                        height={40}
+                      />
                     </View>
                     <LineChart
                       data={displayData}
@@ -511,15 +532,15 @@ export default function AdminDashboard() {
                     />
                     <Text style={styles.chartFootnote}>
                       {chartMode === "W"
-                        ? `${totalWeekly.toLocaleString()} units shipped this week`
-                        : `${totalMonthly.toLocaleString()} units shipped in the last 6 months`}
+                        ? t("admin.unitsThisWeek", { count: totalWeekly.toLocaleString() })
+                        : t("admin.unitsSixMonths", { count: totalMonthly.toLocaleString() })}
                     </Text>
                   </View>
                 </StaggerItem>
 
                 {/* 4. User Management */}
                 <StaggerItem index={4} style={styles.userSection}>
-                  <SectionHeader label="Production Users" />
+                  <SectionHeader label={t("admin.productionUsers")} />
 
                   {/* Search Bar */}
                   <View style={styles.searchWrap}>
@@ -528,7 +549,7 @@ export default function AdminDashboard() {
                       flex={1}
                       backgroundColor="transparent"
                       borderWidth={0}
-                      placeholder="Search by name, ID or locality..."
+                      placeholder={t("admin.searchUsers")}
                       placeholderTextColor="$gray10"
                       color={palette.text}
                       value={searchQuery}
@@ -538,7 +559,7 @@ export default function AdminDashboard() {
 
                   {/* Filter Tabs */}
                   <View style={styles.filterRow}>
-                    {["All", "Active", "Inactive"].map((tab) => (
+                    {(["All", "Active", "Inactive"] as const).map((tab) => (
                       <PressableScale
                         key={tab}
                         hapticFeedback
@@ -554,7 +575,11 @@ export default function AdminDashboard() {
                             filterTab === tab && styles.filterTextActive,
                           ]}
                         >
-                          {tab}
+                          {tab === "All"
+                            ? t("admin.filterAll")
+                            : tab === "Active"
+                              ? t("admin.filterActive")
+                              : t("admin.filterInactive")}
                         </Text>
                       </PressableScale>
                     ))}
@@ -566,13 +591,13 @@ export default function AdminDashboard() {
               !loading ? (
                 <EmptyState
                   icon="users"
-                  title="No users found"
+                  title={t("admin.noUsers")}
                   message={
                     searchQuery
-                      ? "Try a different search term or filter."
-                      : "Add your first production user to get started."
+                      ? t("admin.noUsersSearch")
+                      : t("admin.addFirstUser")
                   }
-                  actionLabel="Add User"
+                  actionLabel={t("admin.addUser")}
                   onAction={openAddMode}
                 />
               ) : null
@@ -606,12 +631,12 @@ export default function AdminDashboard() {
           <Sheet.Frame padding="$4" gap="$3" backgroundColor={palette.surfaceElevated}>
             <Sheet.Handle />
             <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center" marginBottom="$4">
-              {editingUser ? "Edit Profile" : "New User"}
+              {editingUser ? t("admin.editProfile") : t("admin.newUser")}
             </TText>
 
             <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }}>
               <Input
-                placeholder="Full Name"
+                placeholder={t("admin.fullName")}
                 value={name}
                 onChangeText={setName}
                 backgroundColor={palette.surfaceHighest}
@@ -621,7 +646,7 @@ export default function AdminDashboard() {
                 size="$4"
               />
               <Input
-                placeholder="Email"
+                placeholder={t("admin.email")}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -633,7 +658,7 @@ export default function AdminDashboard() {
                 size="$4"
               />
               <Input
-                placeholder="Mobile Number"
+                placeholder={t("admin.mobileNumber")}
                 value={mobile}
                 onChangeText={setMobile}
                 keyboardType="phone-pad"
@@ -644,7 +669,7 @@ export default function AdminDashboard() {
                 size="$4"
               />
               <Input
-                placeholder="Locality"
+                placeholder={t("admin.locality")}
                 value={locality}
                 onChangeText={setLocality}
                 backgroundColor={palette.surfaceHighest}
@@ -656,7 +681,7 @@ export default function AdminDashboard() {
 
               <YStack>
                 <TText color={palette.textSecondary} fontSize={12} marginBottom="$1">
-                  Price Rate (₹)
+                  {t("admin.priceRate")}
                 </TText>
                 <Input
                   placeholder="1.50"
@@ -673,7 +698,7 @@ export default function AdminDashboard() {
 
               <Input
                 placeholder={
-                  editingUser ? "New Password (Optional)" : "Password"
+                  editingUser ? t("profile.newPassword") : t("admin.password")
                 }
                 value={password}
                 onChangeText={setPassword}
@@ -686,7 +711,7 @@ export default function AdminDashboard() {
               />
 
               <View style={styles.statusToggleRow}>
-                <Text style={styles.statusToggleLabel}>Account Status</Text>
+                <Text style={styles.statusToggleLabel}>{t("admin.accountStatus")}</Text>
                 <PressableScale
                   hapticFeedback
                   onPress={() => setIsActive(!isActive)}
@@ -703,13 +728,13 @@ export default function AdminDashboard() {
                         : styles.statusPillTextInactive,
                     ]}
                   >
-                    {isActive ? "Active" : "Inactive"}
+                    {isActive ? t("admin.filterActive") : t("admin.filterInactive")}
                   </Text>
                 </PressableScale>
               </View>
 
               <PrimaryButton
-                label={editingUser ? "Update User" : "Create User"}
+                label={editingUser ? t("admin.updateUser") : t("admin.createUser")}
                 loading={uploading}
                 size="lg"
                 onPress={handleSaveUser}
@@ -776,6 +801,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.md,
   },
+  sparkStrip: { marginBottom: spacing.md },
   chartTitle: {
     color: palette.text,
     fontSize: 16,

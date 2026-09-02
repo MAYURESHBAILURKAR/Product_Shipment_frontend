@@ -24,6 +24,7 @@ import {
 } from "../../src/components/ui";
 import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
+import { useLanguage } from "../../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -33,6 +34,7 @@ export default function ShipmentDetailsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [shipment, setShipment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -49,22 +51,22 @@ export default function ShipmentDetailsScreen() {
     return [
       {
         key: "shipped",
-        title: "Shipped",
-        caption: `${shipment.totalQuantity} units sent to warehouse`,
+        title: t("detail.shipped"),
+        caption: t("detail.shippedCaption", { count: shipment.totalQuantity }),
         at: shipment.shippedAt,
         done: true,
       },
       {
         key: "received",
-        title: "Received",
-        caption: "Confirmed by warehouse admin",
+        title: t("detail.received"),
+        caption: t("detail.receivedCaption"),
         at: received ? shipment.updatedAt || shipment.shippedAt : null,
         done: received,
       },
       {
         key: "paid",
-        title: "Paid",
-        caption: "Payout transferred",
+        title: t("detail.paid"),
+        caption: t("detail.paidCaption"),
         at: paid ? shipment.updatedAt || null : null,
         done: paid,
       },
@@ -87,7 +89,7 @@ export default function ShipmentDetailsScreen() {
       setShipment(data);
     } catch (error) {
       console.error("Fetch Error:", error);
-      showToast({ message: "Could not load shipment details.", kind: "error" });
+      showToast({ message: t("detail.couldNotLoad"), kind: "error" });
       router.back();
     } finally {
       setLoading(false);
@@ -112,10 +114,10 @@ export default function ShipmentDetailsScreen() {
           ? { status: "received", receivedAt: new Date().toISOString() }
           : {}),
       }));
-      showToast({ message: "Marked as paid.", kind: "success" });
+      showToast({ message: t("detail.markedAsPaid"), kind: "success" });
     } catch (error) {
       console.error("Mark paid error:", error);
-      showToast({ message: "Could not update payment status.", kind: "error" });
+      showToast({ message: t("detail.couldNotUpdatePayment"), kind: "error" });
     } finally {
       setMarkingPaid(false);
       setPaidDialog(false);
@@ -148,7 +150,7 @@ export default function ShipmentDetailsScreen() {
         {/* 1. Header */}
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="Details"
+            title={t("detail.details")}
             onBack={() => router.back()}
             right={
               <View style={styles.headerActions}>
@@ -158,10 +160,11 @@ export default function ShipmentDetailsScreen() {
                   style={editStyles.btn}
                 >
                   <Feather name="share-2" size={15} color={palette.primaryBright} />
-                  <Text style={editStyles.label}>Share</Text>
+                  <Text style={editStyles.label}>{t("common.share")}</Text>
                 </PressableScale>
                 {isPending && (
                   <PressableEditBtn
+                    label={t("common.edit")}
                     onPress={() =>
                       router.push({
                         pathname: "/shipment-edit",
@@ -181,7 +184,7 @@ export default function ShipmentDetailsScreen() {
             <GlassCard padding={20}>
               <View style={styles.statusTop}>
                 <View>
-                  <Text style={styles.idLabel}>SHIPMENT ID</Text>
+                  <Text style={styles.idLabel}>{t("detail.shipmentId")}</Text>
                   <Text style={styles.idValue}>
                     #{typeof id === "string" ? id.slice(-6).toUpperCase() : "---"}
                   </Text>
@@ -208,11 +211,11 @@ export default function ShipmentDetailsScreen() {
           {/* 3. Financial Stats */}
           <StaggerItem index={1} style={styles.statRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>TOTAL QTY</Text>
+              <Text style={styles.statLabel}>{t("detail.totalQty")}</Text>
               <Text style={styles.statValue}>{shipment.totalQuantity}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>PAYOUT</Text>
+              <Text style={styles.statLabel}>{t("detail.payout")}</Text>
               <Text style={[styles.statValue, { color: palette.accent }]}>
                 ₹ {shipment.totalAmount}
               </Text>
@@ -221,11 +224,11 @@ export default function ShipmentDetailsScreen() {
 
           {/* 4. Items List */}
           <StaggerItem index={2}>
-            <SectionHeader label="Shipment Contents" />
+            <SectionHeader label={t("detail.contents")} />
             <View style={styles.itemsCol}>
               {shipment.items.map((item: any, index: number) => {
-                const productName = item.product?.name || "Unknown Item";
-                const productBrand = item.product?.brand || "N/A";
+                const productName = item.product?.name || t("detail.unknownItem");
+                const productBrand = item.product?.brand || t("common.na");
                 const productImg =
                   item.product?.photoUrl || "https://placehold.co/100";
 
@@ -239,11 +242,11 @@ export default function ShipmentDetailsScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.itemName}>{productName}</Text>
-                      <Text style={styles.itemBrand}>Brand: {productBrand}</Text>
+                      <Text style={styles.itemBrand}>{t("detail.brand")}{productBrand}</Text>
                     </View>
                     <View style={styles.itemQty}>
                       <Text style={styles.itemQtyValue}>{item.quantity}</Text>
-                      <Text style={styles.itemQtyLabel}>units</Text>
+                      <Text style={styles.itemQtyLabel}>{t("detail.units")}</Text>
                     </View>
                   </View>
                 );
@@ -253,7 +256,7 @@ export default function ShipmentDetailsScreen() {
 
           {/* 5. Timeline Stepper */}
           <StaggerItem index={3}>
-            <SectionHeader label="Timeline" />
+            <SectionHeader label={t("detail.timeline")} />
             <View style={styles.timelineCard}>
               {timeline.map((step, i) => (
                 <View key={step.key} style={styles.timelineRow}>
@@ -352,11 +355,11 @@ export default function ShipmentDetailsScreen() {
                   />
                 </View>
                 <View>
-                  <Text style={styles.paymentTitle}>Payment Status</Text>
+                  <Text style={styles.paymentTitle}>{t("detail.paymentStatus")}</Text>
                   <Text style={styles.paymentSub}>
                     {shipment.paymentStatus === "paid"
-                      ? "Funds have been transferred."
-                      : "Payout not yet confirmed."}
+                      ? t("detail.fundsTransferred")
+                      : t("detail.payoutNotConfirmed")}
                   </Text>
                 </View>
               </View>
@@ -379,7 +382,7 @@ export default function ShipmentDetailsScreen() {
       {shipment.paymentStatus !== "paid" && (
         <View style={styles.paidFooter}>
           <PrimaryButton
-            label="Mark as Paid"
+            label={t("detail.markAsPaid")}
             icon="check"
             size="md"
             onPress={() => setPaidDialog(true)}
@@ -391,11 +394,11 @@ export default function ShipmentDetailsScreen() {
       <ShareShipmentModal
         visible={shareOpen}
         onClose={() => setShareOpen(false)}
-        heading={`Shipment #${typeof id === "string" ? id.slice(-4).toUpperCase() : ""}`}
+        heading={t("detail.shipmentHeading", { id: typeof id === "string" ? id.slice(-4).toUpperCase() : "" })}
         ownerName={shipment.sender?.name || user?.name}
         items={shipment.items.map((item: any) => ({
-          name: item.product?.name || "Unknown Item",
-          brand: item.product?.brand || "N/A",
+          name: item.product?.name || t("detail.unknownItem"),
+          brand: item.product?.brand || t("common.na"),
           photoUrl: item.product?.photoUrl,
           quantity: item.quantity,
           value: item.quantity * (user?.priceAllotted || 0),
@@ -407,18 +410,18 @@ export default function ShipmentDetailsScreen() {
       {/* Mark as Paid confirmation */}
       <AppDialog
         visible={paidDialog}
-        title="Mark as Paid?"
-        message="This confirms the payout for this shipment has been transferred."
+        title={t("detail.markPaidTitle")}
+        message={t("detail.markPaidMessage")}
         icon="check-circle"
         kind="success"
         buttons={[
           {
-            label: "Cancel",
+            label: t("common.cancel"),
             style: "cancel",
             onPress: () => setPaidDialog(false),
           },
           {
-            label: "Mark Paid",
+            label: t("detail.markPaid"),
             style: "confirm",
             onPress: handleMarkPaid,
           },
@@ -429,11 +432,17 @@ export default function ShipmentDetailsScreen() {
 }
 
 // Small ghost edit button for the header slot.
-function PressableEditBtn({ onPress }: { onPress: () => void }) {
+function PressableEditBtn({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
   return (
     <PressableScale hapticFeedback onPress={onPress} style={editStyles.btn}>
       <Feather name="edit-2" size={15} color={palette.primaryBright} />
-      <Text style={editStyles.label}>Edit</Text>
+      <Text style={editStyles.label}>{label}</Text>
     </PressableScale>
   );
 }

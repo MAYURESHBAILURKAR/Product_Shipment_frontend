@@ -20,6 +20,7 @@ import {
 } from "../../src/components/ui";
 import { palette, radius, shadow, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
+import { useLanguage } from "../../src/i18n/LanguageProvider";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
 
@@ -28,6 +29,7 @@ export default function ViewProductScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const product: any = JSON.parse(
     typeof data === "string" ? data : "{}",
@@ -42,10 +44,10 @@ export default function ViewProductScreen() {
       await axios.delete(`${API_URL}/${id}`, {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
-      showToast({ message: "Product has been removed.", kind: "success" });
+      showToast({ message: t("products.removed"), kind: "success" });
       router.back();
     } catch (e) {
-      showToast({ message: "Could not delete", kind: "error" });
+      showToast({ message: t("products.couldNotDelete"), kind: "error" });
     }
   };
 
@@ -57,8 +59,8 @@ export default function ViewProductScreen() {
       >
         <View style={styles.wrap}>
           <ScreenHeader
-            title="Product"
-            subtitle="VIEW DETAILS"
+            title={t("products.product")}
+            subtitle={t("products.viewDetails")}
             onBack={() => router.back()}
           />
 
@@ -107,7 +109,7 @@ export default function ViewProductScreen() {
                       (product?.currentStock ?? 0) < 100 && { color: palette.warning },
                     ]}
                   >
-                    {(product?.currentStock ?? 0) < 100 ? "Low Stock" : "In Stock"}
+                    {(product?.currentStock ?? 0) < 100 ? t("products.lowStock") : t("products.inStock")}
                   </Text>
                 </View>
               </View>
@@ -118,12 +120,12 @@ export default function ViewProductScreen() {
                 <View style={styles.statBox}>
                   <Feather name="box" size={18} color={palette.primaryBright} />
                   <Text style={styles.statValue}>{product?.currentStock ?? 0}</Text>
-                  <Text style={styles.statLabel}>Current Stock</Text>
+                  <Text style={styles.statLabel}>{t("products.currentStock")}</Text>
                 </View>
                 <View style={styles.statBox}>
                   <Feather name="tag" size={18} color={palette.accent} />
                   <Text style={styles.statValue}>₹ {user?.priceAllotted ?? 0}</Text>
-                  <Text style={styles.statLabel}>Price / Unit</Text>
+                  <Text style={styles.statLabel}>{t("products.pricePerUnit")}</Text>
                 </View>
               </View>
             </View>
@@ -132,10 +134,10 @@ export default function ViewProductScreen() {
           {/* Details */}
           <StaggerItem index={2}>
             <View style={styles.metaCard}>
-              <Text style={styles.metaTitle}>PRODUCT DETAILS</Text>
+              <Text style={styles.metaTitle}>{t("products.productDetails")}</Text>
               <View style={styles.metaRow}>
                 <Feather name="hash" size={15} color={palette.textTertiary} />
-                <Text style={styles.metaLabel}>Product ID</Text>
+                <Text style={styles.metaLabel}>{t("products.productId")}</Text>
                 <Text style={styles.metaValue} numberOfLines={1}>
                   {String(id)}
                 </Text>
@@ -143,15 +145,15 @@ export default function ViewProductScreen() {
               <View style={styles.metaDivider} />
               <View style={styles.metaRow}>
                 <Feather name="user" size={15} color={palette.textTertiary} />
-                <Text style={styles.metaLabel}>Owner</Text>
+                <Text style={styles.metaLabel}>{t("products.owner")}</Text>
                 <Text style={styles.metaValue}>
-                  {product?.user?.name || user?.name || "You"}
+                  {product?.user?.name || user?.name || t("products.you")}
                 </Text>
               </View>
               <View style={styles.metaDivider} />
               <View style={styles.metaRow}>
                 <Feather name="layers" size={15} color={palette.textTertiary} />
-                <Text style={styles.metaLabel}>Total Value</Text>
+                <Text style={styles.metaLabel}>{t("products.totalValue")}</Text>
                 <Text style={styles.metaValue}>
                   ₹{" "}
                   {(
@@ -171,7 +173,7 @@ export default function ViewProductScreen() {
                 style={styles.editAction}
               >
                 <Feather name="edit-2" size={16} color={palette.primaryBright} />
-                <Text style={styles.editActionText}>Edit Product</Text>
+                <Text style={styles.editActionText}>{t("products.editProduct")}</Text>
               </PressableScale>
 
               <PressableScale
@@ -180,7 +182,7 @@ export default function ViewProductScreen() {
                 style={styles.deleteAction}
               >
                 <Feather name="trash-2" size={16} color={palette.danger} />
-                <Text style={styles.deleteActionText}>Delete</Text>
+                <Text style={styles.deleteActionText}>{t("common.delete")}</Text>
               </PressableScale>
             </View>
           </StaggerItem>
@@ -198,17 +200,17 @@ export default function ViewProductScreen() {
       {/* Delete confirm */}
       <AppDialog
         visible={deleteDialog}
-        title="Delete Product"
-        message={`Delete "${product?.name}"? This can't be undone.`}
+        title={t("products.deleteProduct")}
+        message={t("products.deleteConfirm", { name: product?.name ?? "" })}
         kind="danger"
         icon="trash-2"
         buttons={[
           {
-            label: "Cancel",
+            label: t("common.cancel"),
             style: "cancel",
             onPress: () => setDeleteDialog(false),
           },
-          { label: "Delete", style: "danger", onPress: performDelete },
+          { label: t("common.delete"), style: "danger", onPress: performDelete },
         ]}
       />
     </SafeAreaView>

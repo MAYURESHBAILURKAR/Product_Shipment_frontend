@@ -31,6 +31,13 @@ import {
 import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
 import { isHapticsEnabled, setHapticsEnabled } from "../../src/utils/haptics";
+import {
+  isPushEnabled,
+  registerForPush,
+  setPushEnabled,
+} from "../../src/utils/push";
+import { LOCALE_LABELS, useLanguage } from "../../src/i18n/LanguageProvider";
+import type { Locale } from "../../src/i18n/translations";
 
 // ⚠️ REPLACE IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -40,10 +47,12 @@ type FeatherName = ComponentProps<typeof Feather>["name"];
 export default function ProfileScreen() {
   const { logout, user } = useAuth();
   const { showToast } = useToast();
+  const { locale, setLocale, t } = useLanguage();
   const router = useRouter();
   const [openSheet, setOpenSheet] = useState(false);
   const [loading, setLoading] = useState(false);
   const [logoutDialog, setLogoutDialog] = useState(false);
+  const [languageSheet, setLanguageSheet] = useState(false);
 
   // Edit State
   const [name, setName] = useState<any>(user?.name || "");
@@ -57,9 +66,21 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     setHapticsOn(isHapticsEnabled());
+    setNotifications(isPushEnabled());
   }, []);
 
+  // Push toggle: on → register this device immediately; off → skip
+  // registration on future launches (backend keeps the last token).
+  const handleNotificationsChange = (next: boolean) => {
+    setNotifications(next);
+    setPushEnabled(next);
+    if (next && user) {
+      registerForPush(user);
+    }
+  };
+
   useDismissOnBack(openSheet, () => setOpenSheet(false));
+  useDismissOnBack(languageSheet, () => setLanguageSheet(false));
 
   // --- Update logic preserved exactly ---
   const handleUpdate = async () => {
@@ -72,11 +93,11 @@ export default function ProfileScreen() {
           headers: { Authorization: `Bearer ${user?.token}` },
         },
       );
-      showToast({ message: "Profile Updated", kind: "success" });
+      showToast({ message: t("profile.updated"), kind: "success" });
       setOpenSheet(false);
     } catch (error: any) {
       showToast({
-        message: error.response?.data?.message || "Update failed",
+        message: error.response?.data?.message || t("common.updateFailed"),
         kind: "error",
       });
     } finally {
@@ -171,18 +192,18 @@ export default function ProfileScreen() {
         <View style={styles.groupsWrap}>
           {/* Account */}
           <StaggerItem index={1}>
-            <SectionHeader label="Account" />
+            <SectionHeader label={t("profile.account")} />
             <View style={styles.groupCard}>
               <MenuItem
                 icon="user"
-                label="Personal Details"
+                label={t("profile.personalDetails")}
                 onPress={() => setOpenSheet(true)}
               />
               <View style={styles.groupDivider} />
               <MenuItem
                 icon="smartphone"
-                label="Mobile Number"
-                value={user?.mobile || "Not set"}
+                label={t("profile.mobileNumber")}
+                value={user?.mobile || t("profile.notSet")}
                 onPress={() => setOpenSheet(true)}
               />
               {user?.role !== "admin" && (
@@ -191,8 +212,10 @@ export default function ProfileScreen() {
                   <MenuItem
                     icon="activity"
                     rupee
-                    label="My Earnings"
-                    value={`₹ ${user?.priceAllotted || 0}/unit`}
+                    label={t("profile.myEarnings")}
+                    value={t("profile.perUnit", {
+                      rate: user?.priceAllotted || 0,
+                    })}
                     onPress={() => router.push("/my-earnings")}
                   />
                 </>
@@ -202,19 +225,19 @@ export default function ProfileScreen() {
 
           {/* Preferences */}
           <StaggerItem index={2}>
-            <SectionHeader label="Preferences" />
+            <SectionHeader label={t("profile.preferences")} />
             <View style={styles.groupCard}>
               <View style={styles.prefRow}>
                 <View style={styles.menuLeft}>
                   <View style={styles.menuIcon}>
                     <Feather name="bell" size={17} color={palette.primaryBright} />
                   </View>
-                  <Text style={styles.menuLabel}>Push Notifications</Text>
+                  <Text style={styles.menuLabel}>{t("profile.pushNotifications")}</Text>
                 </View>
                 <Switch
                   size="$2"
                   checked={notifications}
-                  onCheckedChange={setNotifications}
+                  onCheckedChange={handleNotificationsChange}
                   backgroundColor={
                     notifications ? palette.primary : palette.border
                   }
@@ -228,7 +251,7 @@ export default function ProfileScreen() {
                   <View style={styles.menuIcon}>
                     <Feather name="activity" size={17} color={palette.primaryBright} />
                   </View>
-                  <Text style={styles.menuLabel}>Haptic Feedback</Text>
+                  <Text style={styles.menuLabel}>{t("profile.hapticFeedback")}</Text>
                 </View>
                 <Switch
                   size="$2"
@@ -242,22 +265,29 @@ export default function ProfileScreen() {
                   <Switch.Thumb backgroundColor="#FFFFFF" />
                 </Switch>
               </View>
+              <View style={styles.groupDivider} />
+              <MenuItem
+                icon="globe"
+                label={t("profile.language")}
+                value={LOCALE_LABELS[locale]}
+                onPress={() => setLanguageSheet(true)}
+              />
             </View>
           </StaggerItem>
 
           {/* Support */}
           <StaggerItem index={3}>
-            <SectionHeader label="Support" />
+            <SectionHeader label={t("profile.support")} />
             <View style={styles.groupCard}>
               <MenuItem
                 icon="help-circle"
-                label="Help & Support"
+                label={t("profile.helpSupport")}
                 onPress={() => Linking.openURL("mailto:support@masalaflow.com")}
               />
               <View style={styles.groupDivider} />
               <MenuItem
                 icon="log-out"
-                label="Log Out"
+                label={t("profile.logOut")}
                 isDestructive
                 onPress={() => setLogoutDialog(true)}
               />
@@ -280,14 +310,14 @@ export default function ProfileScreen() {
         <Sheet.Frame padding="$4" gap="$4" backgroundColor={palette.surfaceElevated}>
           <Sheet.Handle />
           <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center">
-            Edit Profile
+            {t("profile.editProfile")}
           </TText>
 
           <View style={{ gap: spacing.md }}>
             <Input
               value={name}
               onChangeText={setName}
-              placeholder="Full Name"
+              placeholder={t("profile.fullName")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
               borderColor={palette.border}
@@ -296,7 +326,7 @@ export default function ProfileScreen() {
             <Input
               value={email}
               onChangeText={setEmail}
-              placeholder="Email Address"
+              placeholder={t("profile.emailAddress")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
               borderColor={palette.border}
@@ -306,7 +336,7 @@ export default function ProfileScreen() {
             <Input
               value={mobile}
               onChangeText={setMobile}
-              placeholder="Mobile Number"
+              placeholder={t("profile.mobileNumber")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
               borderColor={palette.border}
@@ -316,7 +346,7 @@ export default function ProfileScreen() {
             <Input
               value={password}
               onChangeText={setPassword}
-              placeholder="New Password (Optional)"
+              placeholder={t("profile.newPassword")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
               borderColor={palette.border}
@@ -326,27 +356,77 @@ export default function ProfileScreen() {
           </View>
 
           <PrimaryButton
-            label={loading ? "Saving..." : "Save Changes"}
+            label={loading ? t("common.saving") : t("profile.saveChanges")}
             loading={loading}
             onPress={handleUpdate}
           />
         </Sheet.Frame>
       </Sheet>
 
+      {/* Language Sheet */}
+      <Sheet
+        modal
+        open={languageSheet}
+        onOpenChange={setLanguageSheet}
+        snapPoints={[40]}
+        dismissOnSnapToBottom
+      >
+        <Sheet.Overlay />
+        <Sheet.Frame padding="$4" gap="$4" backgroundColor={palette.surfaceElevated}>
+          <Sheet.Handle />
+          <TText color={palette.text} fontSize={20} fontWeight="700" textAlign="center">
+            {t("profile.language")}
+          </TText>
+
+          <View style={{ gap: spacing.sm }}>
+            {(Object.keys(LOCALE_LABELS) as Locale[]).map((code) => (
+              <PressableScale
+                key={code}
+                hapticFeedback
+                onPress={() => {
+                  setLocale(code);
+                  setLanguageSheet(false);
+                }}
+                style={[
+                  styles.langRow,
+                  locale === code && styles.langRowActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.langLabel,
+                    locale === code && { color: palette.primaryBright },
+                  ]}
+                >
+                  {LOCALE_LABELS[code]}
+                </Text>
+                {locale === code && (
+                  <Feather
+                    name="check"
+                    size={18}
+                    color={palette.primaryBright}
+                  />
+                )}
+              </PressableScale>
+            ))}
+          </View>
+        </Sheet.Frame>
+      </Sheet>
+
       {/* Logout confirm */}
       <AppDialog
         visible={logoutDialog}
-        title="Log Out"
-        message="Are you sure you want to log out?"
+        title={t("profile.logOutTitle")}
+        message={t("profile.logOutMessage")}
         kind="danger"
         icon="log-out"
         buttons={[
           {
-            label: "Cancel",
+            label: t("common.cancel"),
             style: "cancel",
             onPress: () => setLogoutDialog(false),
           },
-          { label: "Log Out", style: "danger", onPress: logout },
+          { label: t("profile.logOut"), style: "danger", onPress: logout },
         ]}
       />
     </SafeAreaView>
@@ -482,4 +562,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: spacing.sm,
   },
+  langRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceHighest,
+  },
+  langRowActive: {
+    borderColor: palette.primaryBright,
+    backgroundColor: palette.primarySoft,
+  },
+  langLabel: { color: palette.text, fontSize: 16, fontWeight: "600" },
 });

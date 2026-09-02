@@ -24,6 +24,7 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -33,6 +34,7 @@ export default function AdminReportsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState("monthly");
@@ -62,7 +64,7 @@ export default function AdminReportsScreen() {
   // --- PDF GENERATION LOGIC (preserved exactly) ---
   const generatePDF = async () => {
     if (reportData.length === 0) {
-      showToast({ message: "Nothing to export", kind: "info" });
+      showToast({ message: t("adminScreens.nothingToExport"), kind: "info" });
       return;
     }
     try {
@@ -114,7 +116,7 @@ export default function AdminReportsScreen() {
         mimeType: "application/pdf",
       });
     } catch (error) {
-      showToast({ message: "Could not generate PDF", kind: "error" });
+      showToast({ message: t("adminScreens.couldNotGeneratePdf"), kind: "error" });
     }
   };
 
@@ -149,14 +151,17 @@ export default function AdminReportsScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.rowName}>{item.name}</Text>
             <Text style={styles.rowMeta}>
-              {item.count} Shipments • {item.totalQuantity} Items
+              {t("adminScreens.rowMeta", {
+                count: item.count,
+                items: item.totalQuantity,
+              })}
             </Text>
           </View>
         </View>
 
         <View style={styles.rowRight}>
           <Text style={styles.rowAmount}>₹ {item.totalAmount}</Text>
-          <Text style={styles.rowPaid}>PAID</Text>
+          <Text style={styles.rowPaid}>{t("adminScreens.paidChip")}</Text>
         </View>
       </View>
     </StaggerItem>
@@ -170,8 +175,8 @@ export default function AdminReportsScreen() {
           <View style={styles.headerWrap}>
             {/* Header */}
             <ScreenHeader
-              title="Performance"
-              subtitle="ANALYTICS"
+              title={t("adminScreens.performance")}
+              subtitle={t("adminScreens.analytics")}
               onBack={() => router.back()}
               right={
                 <PressableScale
@@ -180,7 +185,7 @@ export default function AdminReportsScreen() {
                   style={styles.exportBtn}
                 >
                   <Feather name="download" size={14} color={palette.primaryBright} />
-                  <Text style={styles.exportText}>Export PDF</Text>
+                  <Text style={styles.exportText}>{t("adminScreens.exportPdf")}</Text>
                 </PressableScale>
               }
             />
@@ -188,7 +193,7 @@ export default function AdminReportsScreen() {
             {/* Period Filter */}
             <StaggerItem index={1}>
               <View style={styles.segmentWrap}>
-                {["weekly", "monthly", "yearly"].map((p) => (
+                {(["weekly", "monthly", "yearly"] as const).map((p) => (
                   <PressableScale
                     key={p}
                     hapticFeedback
@@ -204,7 +209,7 @@ export default function AdminReportsScreen() {
                         period === p && styles.segmentTextActive,
                       ]}
                     >
-                      {p}
+                      {t(`adminScreens.${p}`)}
                     </Text>
                   </PressableScale>
                 ))}
@@ -215,7 +220,7 @@ export default function AdminReportsScreen() {
             <StaggerItem index={2}>
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Earnings Distribution</Text>
+                  <Text style={styles.chartTitle}>{t("adminScreens.earningsDistribution")}</Text>
                   <Feather name="bar-chart-2" color={palette.accent} size={19} />
                 </View>
 
@@ -252,14 +257,14 @@ export default function AdminReportsScreen() {
                   />
                 )}
                 <Text style={styles.totalLine}>
-                  Total: ₹{totalEarnings.toLocaleString()}
+                  {t("adminScreens.total", { total: `₹${totalEarnings.toLocaleString()}` })}
                 </Text>
               </View>
             </StaggerItem>
 
             {/* List Header */}
             <StaggerItem index={3}>
-              <SectionHeader label="Top Performers" />
+              <SectionHeader label={t("adminScreens.topPerformers")} />
             </StaggerItem>
           </View>
         }
@@ -271,8 +276,8 @@ export default function AdminReportsScreen() {
           !loading ? (
             <EmptyState
               icon="bar-chart-2"
-              title="No data found"
-              message="There's no performance data for this period yet."
+              title={t("adminScreens.noData")}
+              message={t("adminScreens.noDataMessage")}
             />
           ) : null
         }

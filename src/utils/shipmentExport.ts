@@ -1,4 +1,5 @@
 import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
@@ -198,6 +199,27 @@ export async function copyText(text: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("copyText failed:", error);
+    return false;
+  }
+}
+
+// Opens WhatsApp with the text pre-filled. Prefers the native app scheme;
+// falls back to wa.me (browser WhatsApp) when the app isn't installed.
+// Returns false when neither can be opened (e.g. web).
+export async function shareTextToWhatsApp(text: string): Promise<boolean> {
+  const encoded = encodeURIComponent(text);
+  try {
+    const appUrl = `whatsapp://send?text=${encoded}`;
+    const canOpenApp = await Linking.canOpenURL(appUrl);
+    if (canOpenApp) {
+      await Linking.openURL(appUrl);
+      return true;
+    }
+    // No WhatsApp app — use the universal wa.me link.
+    await Linking.openURL(`https://wa.me/?text=${encoded}`);
+    return true;
+  } catch (error) {
+    console.error("shareTextToWhatsApp failed:", error);
     return false;
   }
 }

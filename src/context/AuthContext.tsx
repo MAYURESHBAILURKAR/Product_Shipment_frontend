@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { clearUserCache } from "../utils/apiCache";
+import { registerForPush } from "../utils/push";
 
 interface User {
   _id: string;
@@ -37,8 +39,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const storedUser = await AsyncStorage.getItem("user");
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
-        // console.log(storedUser);
+        const parsed: User = JSON.parse(storedUser);
+        setUser(parsed);
+        // Re-register this device for push after a session restore.
+        registerForPush(parsed);
       }
     } catch (e) {
       console.error("Failed to load user", e);
@@ -52,6 +56,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await AsyncStorage.setItem("user", JSON.stringify(userData));
     await AsyncStorage.setItem("token", userData.token);
 
+    // Register this device for push notifications (best-effort).
+    registerForPush(userData);
+
     // Redirect based on role
     if (userData.role === "admin") {
       // router.replace('/(tabs)/admin'); // We'll build this later
@@ -64,6 +71,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     try {
       // console.log("logout");
+
+      // 0. Drop cached API responses so the next user never sees this one's data
+      await clearUserCache();
 
       // 1. Clear Storage
       await AsyncStorage.removeItem("user");

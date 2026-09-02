@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -14,6 +13,7 @@ import {
   EmptyState,
   ExportSheet,
   ExportFormat,
+  OfflineBanner,
   PressableScale,
   ScreenHeader,
   SectionHeader,
@@ -23,12 +23,15 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
+import { cachedGet } from "../src/utils/apiCache";
 import {
   buildEarningsHtml,
   copyText,
   earningsToCsv,
   EarningsMonthRow,
   sharePdf,
+  shareTextToWhatsApp,
 } from "../src/utils/shipmentExport";
 
 // ⚠️ REPLACE IP
@@ -45,19 +48,26 @@ export default function MyEarningsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [shipments, setShipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
+  // Offline resilience: shows the banner when the list came from cache.
+  const [staleSince, setStaleSince] = useState<number | null>(null);
+
   const fetchShipments = async () => {
     try {
       setRefreshing(true);
-      const { data } = await axios.get(`${API_URL}/shipments/myshipments`, {
-        headers: { Authorization: `Bearer ${user?.token}` },
-      });
-      setShipments(data);
+      const res = await cachedGet<any[]>(
+        "shipments:mine",
+        `${API_URL}/shipments/myshipments`,
+        { headers: { Authorization: `Bearer ${user?.token}` } },
+      );
+      setStaleSince(res.stale ? res.savedAt : null);
+      setShipments(res.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -128,9 +138,23 @@ export default function MyEarningsScreen() {
   const handleExport = async (format: ExportFormat) => {
     setExportOpen(false);
     if (earnings.months.length === 0) {
-      showToast({ message: "No earnings to export yet.", kind: "error" });
+      showToast({ message: t("earnings.nothingToExport"), kind: "error" });
       return;
     }
+    // Plain-text summary shared by "copy" and WhatsApp.
+    const summaryText = () => {
+      const total = money(earnings.totalValue);
+      return [
+        `My Earnings — ${user?.name}`,
+        `Rate: ${money(rate)}/unit`,
+        `Total: ${total} (${earnings.totalUnits} units)`,
+        `Received: ${money(earnings.receivedValue)} · Pending: ${money(earnings.pendingValue)}`,
+        "",
+        ...earnings.months.map(
+          (m) => `${m.label}: ${m.shipments} shipments, ${m.units} units, ${money(m.amount)}`,
+        ),
+      ].join("\n");
+    };
     try {
       if (format === "pdf") {
         const ok = await sharePdf(
@@ -139,37 +163,33 @@ export default function MyEarningsScreen() {
             ratePerUnit: rate,
             ownerName: user?.name,
           }),
-          "Share earnings statement",
+          t("export.shareEarningsStatement"),
         );
         if (!ok) throw new Error("unavailable");
       } else if (format === "csv") {
         const ok = await copyText(earningsToCsv(earnings.months));
         showToast(
           ok
-            ? { message: "CSV copied to clipboard — paste into any spreadsheet.", kind: "success" }
-            : { message: "Copy failed.", kind: "error" },
+            ? { message: t("export.csvCopied"), kind: "success" }
+            : { message: t("common.copyFailed"), kind: "error" },
         );
-      } else {
-        const total = money(earnings.totalValue);
-        const text = [
-          `My Earnings — ${user?.name}`,
-          `Rate: ${money(rate)}/unit`,
-          `Total: ${total} (${earnings.totalUnits} units)`,
-          `Received: ${money(earnings.receivedValue)} · Pending: ${money(earnings.pendingValue)}`,
-          "",
-          ...earnings.months.map(
-            (m) => `${m.label}: ${m.shipments} shipments, ${m.units} units, ${money(m.amount)}`,
-          ),
-        ].join("\n");
-        const ok = await copyText(text);
+      } else if (format === "whatsapp") {
+        const ok = await shareTextToWhatsApp(summaryText());
         showToast(
           ok
-            ? { message: "Summary copied to clipboard.", kind: "success" }
-            : { message: "Copy failed.", kind: "error" },
+            ? { message: t("export.whatsappOpening"), kind: "success" }
+            : { message: t("export.whatsappUnavailable"), kind: "error" },
+        );
+      } else {
+        const ok = await copyText(summaryText());
+        showToast(
+          ok
+            ? { message: t("export.summaryCopied"), kind: "success" }
+            : { message: t("common.copyFailed"), kind: "error" },
         );
       }
     } catch (error) {
-      showToast({ message: "Export failed. Try again.", kind: "error" });
+      showToast({ message: t("export.failed"), kind: "error" });
     }
   };
 
@@ -198,8 +218,8 @@ export default function MyEarningsScreen() {
       <View style={{ flex: 1 }}>
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="My Earnings"
-            subtitle="PAYOUT HISTORY"
+            title={t("earnings.title")}
+            subtitle={t("earnings.payoutHistory")}
             onBack={() => router.back()}
             right={
               <PressableScale hapticFeedback onPress={() => setExportOpen(true)} style={styles.calendarBtn}>
@@ -208,6 +228,12 @@ export default function MyEarningsScreen() {
             }
           />
         </View>
+
+        {staleSince !== null && (
+          <View style={styles.bannerWrap}>
+            <OfflineBanner savedAt={staleSince} />
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.skeletonWrap}>
@@ -232,10 +258,10 @@ export default function MyEarningsScreen() {
               {/* Total earnings hero */}
               <StaggerItem index={0}>
                 <View style={styles.hero}>
-                  <Text style={styles.heroLabel}>TOTAL EARNINGS</Text>
+                  <Text style={styles.heroLabel}>{t("earnings.totalEarnings")}</Text>
                   <Text style={styles.heroValue}>{money(earnings.totalValue)}</Text>
                   <Text style={styles.heroSub}>
-                    {earnings.totalUnits} units · {money(rate)}/unit
+                    {earnings.totalUnits} {t("earnings.unitsSuffix")} · {money(rate)}/{t("earnings.unitsSuffix")}
                   </Text>
                 </View>
               </StaggerItem>
@@ -244,13 +270,13 @@ export default function MyEarningsScreen() {
               <StaggerItem index={1} style={styles.statRow}>
                 <HeaderStat
                   icon="clock"
-                  label="PENDING"
+                  label={t("earnings.pending")}
                   value={money(earnings.pendingValue)}
                   tint={palette.warning}
                 />
                 <HeaderStat
                   icon="check-circle"
-                  label="RECEIVED"
+                  label={t("earnings.received")}
                   value={money(earnings.receivedValue)}
                   tint={palette.success}
                 />
@@ -261,9 +287,12 @@ export default function MyEarningsScreen() {
                 <View style={styles.paidCard}>
                   <View style={styles.paidRow}>
                     <View>
-                      <Text style={styles.paidTitle}>Payout Status</Text>
+                      <Text style={styles.paidTitle}>{t("earnings.payoutStatus")}</Text>
                       <Text style={styles.paidSub}>
-                        {money(earnings.paidValue)} paid of {money(earnings.totalValue)}
+                        {t("earnings.paidOf", {
+                          paid: money(earnings.paidValue),
+                          total: money(earnings.totalValue),
+                        })}
                       </Text>
                     </View>
                     <Text style={styles.paidPct}>
@@ -295,13 +324,13 @@ export default function MyEarningsScreen() {
 
               {/* Monthly breakdown */}
               <StaggerItem index={3}>
-                <SectionHeader label="Monthly Breakdown" />
+                <SectionHeader label={t("earnings.monthlyBreakdown")} />
                 {earnings.months.length === 0 ? (
                   <EmptyState
                     icon="activity"
                     rupee
-                    title="No earnings yet"
-                    message="Shipments you create will show up here."
+                    title={t("earnings.noEarnings")}
+                    message={t("earnings.noEarningsMessage")}
                   />
                 ) : (
                   <View style={styles.monthCol}>
@@ -321,7 +350,10 @@ export default function MyEarningsScreen() {
                           <View style={styles.monthRight}>
                             <Text style={styles.monthValue}>{money(m.amount)}</Text>
                             <Text style={styles.monthSub}>
-                              {m.shipments} ship · {m.units}u
+                              {t("earnings.monthDetail", {
+                                shipments: m.shipments,
+                                units: m.units,
+                              })}
                             </Text>
                           </View>
                         </View>
@@ -338,8 +370,11 @@ export default function MyEarningsScreen() {
       <ExportSheet
         visible={exportOpen}
         onClose={() => setExportOpen(false)}
-        title="Export Earnings"
-        subtitle={`${earnings.months.length} months · ${money(earnings.totalValue)} total`}
+        title={t("earnings.exportTitle")}
+        subtitle={t("earnings.subtitle", {
+          months: earnings.months.length,
+          total: money(earnings.totalValue),
+        })}
         onFormat={handleExport}
       />
     </SafeAreaView>
@@ -349,6 +384,7 @@ export default function MyEarningsScreen() {
 const styles = StyleSheet.create({
   headerPad: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   skeletonWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  bannerWrap: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
   wrap: { paddingHorizontal: spacing.lg, gap: spacing.lg },
   calendarBtn: {
     width: 38,

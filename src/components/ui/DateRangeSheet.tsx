@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { Calendar as RNCalendar, DateData } from "react-native-calendars";
 import { palette, radius, spacing } from "../../theme/tokens";
+import { useLanguage } from "../../i18n/LanguageProvider";
+import type { TranslationKey } from "../../i18n/translations";
 import { PressableScale, PrimaryButton } from "./index";
 
 export interface DateRange {
@@ -50,6 +52,7 @@ export function DateRangeSheet({
   initialRange,
   onApply,
 }: DateRangeSheetProps) {
+  const { t } = useLanguage();
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
 
@@ -169,7 +172,7 @@ export function DateRangeSheet({
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
               <Feather name="calendar" size={17} color={palette.primaryBright} />
-              <Text style={styles.headerTitle}>Filter by date range</Text>
+              <Text style={styles.headerTitle}>{t("dateRange.title")}</Text>
             </View>
             <PressableScale hapticFeedback onPress={onClose} style={styles.closeBtn}>
               <Feather name="x" size={16} color={palette.textSecondary} />
@@ -184,12 +187,12 @@ export function DateRangeSheet({
                 start ? styles.rangeBoxActive : null,
               ]}
             >
-              <Text style={styles.rangeLabel}>FROM</Text>
+              <Text style={styles.rangeLabel}>{t("dateRange.from")}</Text>
               <Text
                 style={[styles.rangeValue, start ? styles.rangeValueActive : null]}
                 numberOfLines={1}
               >
-                {start ? pretty(start) : "Select date"}
+                {start ? pretty(start) : t("dateRange.selectDate")}
               </Text>
             </View>
             <Feather
@@ -198,12 +201,12 @@ export function DateRangeSheet({
               color={palette.textTertiary}
             />
             <View style={[styles.rangeBox, end ? styles.rangeBoxActive : null]}>
-              <Text style={styles.rangeLabel}>TO</Text>
+              <Text style={styles.rangeLabel}>{t("dateRange.to")}</Text>
               <Text
                 style={[styles.rangeValue, end ? styles.rangeValueActive : null]}
                 numberOfLines={1}
               >
-                {end ? pretty(end) : "Select date"}
+                {end ? pretty(end) : t("dateRange.selectDate")}
               </Text>
             </View>
           </View>
@@ -214,12 +217,12 @@ export function DateRangeSheet({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.presetRow}
           >
-            {[
-              { label: "Today", days: 0 },
-              { label: "Last 7 days", days: 6 },
-              { label: "Last 30 days", days: 29 },
-              { label: "Last 90 days", days: 89 },
-            ].map((p) => {
+            {([
+              { labelKey: "dateRange.today" as TranslationKey, days: 0 },
+              { labelKey: "dateRange.last7" as TranslationKey, days: 6 },
+              { labelKey: "dateRange.last30" as TranslationKey, days: 29 },
+              { labelKey: "dateRange.last90" as TranslationKey, days: 89 },
+            ]).map((p) => {
               const active =
                 start !== null &&
                 end !== null &&
@@ -227,7 +230,7 @@ export function DateRangeSheet({
                 end === today;
               return (
                 <PressableScale
-                  key={p.label}
+                  key={p.labelKey}
                   hapticFeedback
                   onPress={() => applyPreset(p.days)}
                   style={[styles.presetChip, active && styles.presetChipActive]}
@@ -238,7 +241,7 @@ export function DateRangeSheet({
                       active && styles.presetChipTextActive,
                     ]}
                   >
-                    {p.label}
+                    {t(p.labelKey)}
                   </Text>
                 </PressableScale>
               );
@@ -264,12 +267,12 @@ export function DateRangeSheet({
           <View style={styles.actionsRow}>
             {initialRange ? (
               <PressableScale hapticFeedback onPress={() => onApply(null)} style={styles.clearBtn}>
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <Text style={styles.clearBtnText}>{t("dateRange.clear")}</Text>
               </PressableScale>
             ) : null}
             <View style={styles.applyWrap}>
               <PrimaryButton
-                label="Apply Filter"
+                label={t("dateRange.applyFilter")}
                 onPress={() => {
                   if (start && end) {
                     onApply({ startDate: start, endDate: end });

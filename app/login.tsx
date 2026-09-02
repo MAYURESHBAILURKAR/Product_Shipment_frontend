@@ -22,6 +22,7 @@ import {
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { Input } from "tamagui";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE WITH YOUR LOCAL IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL
@@ -32,6 +33,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +43,7 @@ export default function LoginScreen() {
   // --- Login logic preserved exactly ---
   const handleLogin = async () => {
     if (!email || !password) {
-      showToast({ message: "Please fill in all fields", kind: "error" });
+      showToast({ message: t("auth.fillAllFields"), kind: "error" });
       return;
     }
 
@@ -52,7 +54,7 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error(error);
       showToast({
-        message: error.response?.data?.message || "Check connection",
+        message: error.response?.data?.message || t("auth.checkConnection"),
         kind: "error",
       });
       setLoading(false);
@@ -72,22 +74,20 @@ export default function LoginScreen() {
           {/* Header */}
           <StaggerItem index={0} style={styles.header}>
             <Logo size={80} showText={true} />
-            <Text style={styles.tagline}>Enterprise logistics management</Text>
+            <Text style={styles.tagline}>{t("auth.tagline")}</Text>
           </StaggerItem>
 
           {/* Form Card */}
           <StaggerItem index={1} style={styles.formWrap}>
             <GlassCard padding={24}>
               <View style={styles.formHeader}>
-                <Text style={styles.formTitle}>Welcome Back</Text>
-                <Text style={styles.formSubtitle}>
-                  Please enter your credentials to access the dashboard.
-                </Text>
+                <Text style={styles.formTitle}>{t("auth.welcomeBack")}</Text>
+                <Text style={styles.formSubtitle}>{t("auth.subtitle")}</Text>
               </View>
 
               {/* Email Input */}
               <View style={styles.field}>
-                <Text style={styles.label}>EMAIL ADDRESS</Text>
+                <Text style={styles.label}>{t("auth.email")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="mail" size={17} color={palette.textTertiary} />
                   <Input
@@ -107,7 +107,7 @@ export default function LoginScreen() {
 
               {/* Password Input */}
               <View style={styles.field}>
-                <Text style={styles.label}>PASSWORD</Text>
+                <Text style={styles.label}>{t("auth.password")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="lock" size={17} color={palette.textTertiary} />
                   <Input
@@ -141,12 +141,12 @@ export default function LoginScreen() {
                 onPress={() => router.push("/forgot-password")}
                 style={styles.forgotWrap}
               >
-                <Text style={styles.forgot}>Forgot password?</Text>
+                <Text style={styles.forgot}>{t("auth.forgot")}</Text>
               </PressableScale>
 
               {/* Login Button */}
               <PrimaryButton
-                label="Sign In"
+                label={t("auth.signIn")}
                 icon={loading ? undefined : "arrow-right"}
                 loading={loading}
                 size="lg"
@@ -159,11 +159,11 @@ export default function LoginScreen() {
           <StaggerItem index={2} style={styles.footer}>
             <AppVersionDisplay />
             <View style={styles.legalRow}>
-              <Text style={styles.legal}>Privacy</Text>
+              <Text style={styles.legal}>{t("auth.privacy")}</Text>
               <Text style={styles.legalDot}>•</Text>
-              <Text style={styles.legal}>Terms</Text>
+              <Text style={styles.legal}>{t("auth.terms")}</Text>
               <Text style={styles.legalDot}>•</Text>
-              <Text style={styles.legal}>Help</Text>
+              <Text style={styles.legal}>{t("auth.help")}</Text>
             </View>
           </StaggerItem>
         </View>

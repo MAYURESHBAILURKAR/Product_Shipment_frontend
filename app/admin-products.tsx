@@ -19,6 +19,7 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -26,6 +27,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
 export default function AdminProductsScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { t } = useLanguage();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -76,7 +78,7 @@ export default function AdminProductsScreen() {
               <Text style={styles.ownerName}>{item.user?.name}</Text>
               <Text style={styles.ownerLocality}>
                 {" "}
-                ({item.user?.locality || "No Locality"})
+                ({item.user?.locality || t("admin.noLocality")})
               </Text>
             </Text>
           </View>
@@ -85,7 +87,7 @@ export default function AdminProductsScreen() {
           <View style={styles.stockRow}>
             <Feather name="box" size={13} color={palette.warning} />
             <Text style={styles.stockText}>
-              {item.currentStock} in stock
+              {t("products.inStockCount", { count: item.currentStock })}
             </Text>
           </View>
         </View>
@@ -98,8 +100,8 @@ export default function AdminProductsScreen() {
       <View style={styles.flex}>
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="Global Inventory"
-            subtitle="ALL PRODUCTS ACROSS USERS"
+            title={t("adminScreens.globalInventory")}
+            subtitle={t("adminScreens.allProducts")}
             onBack={() => router.back()}
           />
         </View>
@@ -109,7 +111,7 @@ export default function AdminProductsScreen() {
           <Feather name="search" size={16} color={palette.textTertiary} />
           <Input
             flex={1}
-            placeholder="Search by Product or User..."
+            placeholder={t("adminScreens.searchPlaceholder")}
             value={search}
             onChangeText={setSearch}
             backgroundColor="transparent"
@@ -136,11 +138,11 @@ export default function AdminProductsScreen() {
               !loading ? (
                 <EmptyState
                   icon="package"
-                  title="No products found"
+                  title={t("products.noProducts")}
                   message={
                     search
-                      ? "No products match your search."
-                      : "Products created by production users will appear here."
+                      ? t("products.noProductsSearch")
+                      : t("products.adminEmptyMessage")
                   }
                 />
               ) : null

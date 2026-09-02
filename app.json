@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nexus.supply"
+      "bundleIdentifier": "com.nexus.supply",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["whatsapp"]
+      }
     },
     "android": {
       "package": "com.nexus.supply",
@@ -26,6 +29,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#2F80ED"
+        }
+      ],
       [
         "expo-splash-screen",
         {

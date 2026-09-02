@@ -4,6 +4,7 @@ import { Tabs } from "expo-router";
 import React, { ComponentProps } from "react";
 import { Platform } from "react-native";
 import { palette } from "../../src/theme/tokens";
+import { useLanguage } from "../../src/i18n/LanguageProvider";
 
 function TabIcon({
   name,
@@ -25,6 +26,7 @@ function TabIcon({
 }
 
 export default function TabLayout() {
+  const { t } = useLanguage();
   return (
     <Tabs
       screenOptions={{
@@ -60,7 +62,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t("dash.home"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="grid" color={color} focused={focused} />
           ),
@@ -69,7 +71,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="products"
         options={{
-          title: "Inventory",
+          title: t("dash.inventory"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="package" color={color} focused={focused} />
           ),
@@ -78,7 +80,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="shipments"
         options={{
-          title: "History",
+          title: t("dash.history"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="clock" color={color} focused={focused} />
           ),
@@ -87,7 +89,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("dash.profileTab"),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="user" color={color} focused={focused} />
           ),

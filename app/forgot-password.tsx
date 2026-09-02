@@ -20,6 +20,7 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { Input } from "tamagui";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ Ensure this matches your .env or fallback
 const API_URL =
@@ -28,6 +29,7 @@ const API_URL =
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export default function ForgotPasswordScreen() {
   // --- Reset logic preserved exactly ---
   const handleReset = async () => {
     if (!email || !newPassword) {
-      showToast({ message: "Please fill in all fields", kind: "error" });
+      showToast({ message: t("auth.fillAllFields"), kind: "error" });
       return;
     }
 
@@ -47,14 +49,14 @@ export default function ForgotPasswordScreen() {
       });
 
       showToast({
-        message: "Password has been reset! Please login.",
+        message: t("auth.resetSuccess"),
         kind: "success",
       });
       router.back(); // Go back to Login
     } catch (error: any) {
       console.error(error);
       showToast({
-        message: error.response?.data?.message || "Reset failed",
+        message: error.response?.data?.message || t("auth.resetFailed"),
         kind: "error",
       });
     } finally {
@@ -75,10 +77,8 @@ export default function ForgotPasswordScreen() {
           {/* Header */}
           <StaggerItem style={styles.header}>
             <Logo size={60} showText={false} />
-            <Text style={styles.heading}>Reset Password</Text>
-            <Text style={styles.subheading}>
-              Enter your email and new password.
-            </Text>
+            <Text style={styles.heading}>{t("auth.resetPassword")}</Text>
+            <Text style={styles.subheading}>{t("auth.resetHint")}</Text>
           </StaggerItem>
 
           {/* Form Card */}
@@ -86,7 +86,7 @@ export default function ForgotPasswordScreen() {
             <GlassCard padding={24}>
               {/* Email Input */}
               <View style={styles.field}>
-                <Text style={styles.label}>EMAIL ADDRESS</Text>
+                <Text style={styles.label}>{t("auth.email")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="mail" size={17} color={palette.textTertiary} />
                   <Input
@@ -105,7 +105,7 @@ export default function ForgotPasswordScreen() {
 
               {/* New Password Input */}
               <View style={styles.field}>
-                <Text style={styles.label}>NEW PASSWORD</Text>
+                <Text style={styles.label}>{t("auth.newPassword")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="lock" size={17} color={palette.textTertiary} />
                   <Input
@@ -124,7 +124,7 @@ export default function ForgotPasswordScreen() {
 
               {/* Submit */}
               <PrimaryButton
-                label="Reset Password"
+                label={t("auth.resetPassword")}
                 loading={loading}
                 size="lg"
                 onPress={handleReset}
@@ -137,7 +137,7 @@ export default function ForgotPasswordScreen() {
             <PressableScale hapticFeedback onPress={() => router.back()}>
               <View style={styles.backRow}>
                 <Feather name="arrow-left" size={16} color={palette.textSecondary} />
-                <Text style={styles.back}>Back to Login</Text>
+                <Text style={styles.back}>{t("auth.backToLogin")}</Text>
               </View>
             </PressableScale>
           </StaggerItem>

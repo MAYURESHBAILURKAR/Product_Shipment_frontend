@@ -21,6 +21,7 @@ import {
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -29,6 +30,7 @@ export default function EditShipmentScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const { shipmentId } = useLocalSearchParams();
 
   const [products, setProducts] = useState<any[]>([]);
@@ -66,7 +68,7 @@ export default function EditShipmentScreen() {
         setCart(initialCart);
       }
     } catch (error) {
-      showToast({ message: "Failed to load shipment data", kind: "error" });
+      showToast({ message: t("editShipment.loadFailed"), kind: "error" });
       router.back();
     } finally {
       setLoading(false);
@@ -125,11 +127,11 @@ export default function EditShipmentScreen() {
         { headers: { Authorization: `Bearer ${user?.token}` } },
       );
 
-      showToast({ message: "Shipment Updated!", kind: "success" });
+      showToast({ message: t("editShipment.updated"), kind: "success" });
       router.back();
     } catch (error: any) {
       showToast({
-        message: error.response?.data?.message || "Update failed",
+        message: error.response?.data?.message || t("common.updateFailed"),
         kind: "error",
       });
     } finally {
@@ -186,7 +188,7 @@ export default function EditShipmentScreen() {
                     item.currentStock < 500 && { color: palette.danger },
                   ]}
                 >
-                  Stock: {item.currentStock}
+                  {t("newShipment.stockLabel")}{item.currentStock}
                 </Text>
 
                 {/* Stepper */}
@@ -226,8 +228,8 @@ export default function EditShipmentScreen() {
         {/* Header */}
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="Update Shipment"
-            subtitle="EDIT MODE"
+            title={t("editShipment.updateShipment")}
+            subtitle={t("editShipment.editMode")}
             onBack={() => router.back()}
           />
         </View>
@@ -239,7 +241,7 @@ export default function EditShipmentScreen() {
             flex={1}
             backgroundColor="transparent"
             borderWidth={0}
-            placeholder="Search products..."
+            placeholder={t("editShipment.searchPlaceholder")}
             placeholderTextColor="$gray10"
             color={palette.text}
             value={searchQuery}
@@ -267,19 +269,19 @@ export default function EditShipmentScreen() {
         <View style={styles.footer}>
           <View style={styles.footerStats}>
             <View>
-              <Text style={styles.footerLabel}>ESTIMATED PAYOUT</Text>
+              <Text style={styles.footerLabel}>{t("newShipment.estimatedPayout")}</Text>
               <Text style={styles.footerPayout}>
                 ₹ {estimatedPayout.toFixed(2)}
               </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.footerLabel}>TOTAL ITEMS</Text>
+              <Text style={styles.footerLabel}>{t("newShipment.totalItems")}</Text>
               <Text style={styles.footerItems}>{totalItems}</Text>
             </View>
           </View>
 
           <PrimaryButton
-            label="Confirm Changes"
+            label={t("editShipment.confirmChanges")}
             icon="check"
             size="lg"
             loading={submitting}

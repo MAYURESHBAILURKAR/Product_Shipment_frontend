@@ -3,6 +3,7 @@ import { Logo } from "@/components/Logo";
 import ServerAwakeScreen from "@/ServerAwakeScreen";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
+import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -19,6 +20,14 @@ import config from "../tamagui.config";
 import { palette } from "../src/theme/tokens";
 import { ToastProvider } from "../src/components/ui";
 import { hydrateHapticsSetting } from "../src/utils/haptics";
+import {
+  LanguageProvider,
+  hydrateLanguageSetting,
+} from "../src/i18n/LanguageProvider";
+import {
+  configureNotificationBehavior,
+  hydratePushSetting,
+} from "../src/utils/push";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,6 +35,33 @@ function RootNavigation() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Notification tap → open the related shipment (when we have one and
+  // the user is signed in).
+  useEffect(() => {
+    const openFromResponse = (response: Notifications.NotificationResponse) => {
+      const shipmentId = (response.notification.request.content.data as any)
+        ?.shipmentId;
+      if (shipmentId && user) {
+        router.push({
+          pathname: "/shipment/[id]",
+          params: { id: shipmentId },
+        });
+      }
+    };
+
+    // Cold start: the notification that launched the app, if any.
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) openFromResponse(response);
+    });
+
+    // Warm start / foreground tap.
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      openFromResponse,
+    );
+
+    return () => sub.remove();
+  }, [user, router]);
 
   useEffect(() => {
     // console.log("RootNavigation", user);
@@ -114,6 +150,11 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
     hydrateHapticsSetting();
+    // Language: restore the saved locale before screens render.
+    hydrateLanguageSetting();
+    // Push: restore pref + make foreground notifications show as alerts.
+    hydratePushSetting();
+    configureNotificationBehavior();
   }, [loaded]);
 
   if (!loaded) return null;
@@ -125,16 +166,18 @@ export default function RootLayout() {
           <Theme name="dark">
             <SafeAreaProvider>
               <StatusBar style="light" />
-              <ToastProvider>
-                {/* ✅ LOGIC: Show Awake Screen First */}
-                {!isServerReady ? (
-                  <ServerAwakeScreen
-                    onServerReady={() => setServerReady(true)}
-                  />
-                ) : (
-                  <RootNavigation />
-                )}
-              </ToastProvider>
+              <LanguageProvider>
+                <ToastProvider>
+                  {/* ✅ LOGIC: Show Awake Screen First */}
+                  {!isServerReady ? (
+                    <ServerAwakeScreen
+                      onServerReady={() => setServerReady(true)}
+                    />
+                  ) : (
+                    <RootNavigation />
+                  )}
+                </ToastProvider>
+              </LanguageProvider>
             </SafeAreaProvider>
           </Theme>
         </PortalProvider>

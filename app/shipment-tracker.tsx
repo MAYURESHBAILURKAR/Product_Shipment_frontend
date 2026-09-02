@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -18,18 +17,24 @@ import {
   EmptyState,
   ExportSheet,
   ExportFormat,
+  OfflineBanner,
   PressableScale,
   ScreenHeader,
+  ShipmentCalendar,
   SkeletonListRow,
   StaggerItem,
   useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
+import { useLanguage } from "../src/i18n/LanguageProvider";
+import type { TranslationKey } from "../src/i18n/translations";
+import { cachedGet } from "../src/utils/apiCache";
 import {
   buildStatementHtml,
   copyText,
   sharePdf,
+  shareTextToWhatsApp,
   statementToCsv,
   StatementRow,
 } from "../src/utils/shipmentExport";
@@ -39,12 +44,12 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type SortMode = "date-desc" | "date-asc" | "value-desc" | "value-asc" | "qty-desc";
 
-const SORT_OPTIONS: { key: SortMode; label: string }[] = [
-  { key: "date-desc", label: "Newest first" },
-  { key: "date-asc", label: "Oldest first" },
-  { key: "value-desc", label: "Highest value" },
-  { key: "value-asc", label: "Lowest value" },
-  { key: "qty-desc", label: "Most items" },
+const SORT_OPTIONS: { key: SortMode; labelKey: TranslationKey }[] = [
+  { key: "date-desc", labelKey: "tracker.newestFirst" },
+  { key: "date-asc", labelKey: "tracker.oldestFirst" },
+  { key: "value-desc", labelKey: "tracker.highestValue" },
+  { key: "value-asc", labelKey: "tracker.lowestValue" },
+  { key: "qty-desc", labelKey: "tracker.mostItems" },
 ];
 
 const prettyDate = (key: string) =>
@@ -61,19 +66,20 @@ const prettyRange = (range: DateRange) =>
 
 // Human label of the active filters for the export sheet subtitle.
 const describePeriod = (
+  t: (key: TranslationKey) => string,
   timeFilter: string,
   dateRange: DateRange | null,
 ): string => {
   if (timeFilter === "custom" && dateRange) return prettyRange(dateRange);
   switch (timeFilter) {
     case "week":
-      return "Last 7 days";
+      return t("tracker.last7Days");
     case "month":
-      return "This month";
+      return t("tracker.thisMonth");
     case "year":
-      return "This year";
+      return t("tracker.thisYear");
     default:
-      return "All time";
+      return t("tracker.allTime");
   }
 };
 
@@ -81,6 +87,7 @@ export default function ShipmentTrackerScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [allShipments, setAllShipments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -99,25 +106,33 @@ export default function ShipmentTrackerScreen() {
   const [showSortSheet, setShowSortSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
 
-  // --- Fetch logic preserved exactly ---
+  // View Mode State (list ⇄ calendar heatmap)
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // Offline resilience: shows the banner when lists came from cache.
+  const [staleSince, setStaleSince] = useState<number | null>(null);
+
+  // --- Fetch logic preserved exactly (axios → cachedGet swap only) ---
   const fetchData = async () => {
     setLoading(true);
     try {
-      const endpoint =
-        user?.role === "admin" ? "/shipments" : "/shipments/myshipments";
-      const { data } = await axios.get(`${API_URL}${endpoint}`, {
+      const isAdmin = user?.role === "admin";
+      const endpoint = isAdmin ? "/shipments" : "/shipments/myshipments";
+      const res = await cachedGet<any[]>(endpoint, `${API_URL}${endpoint}`, {
         headers: { Authorization: `Bearer ${user?.token}` },
       });
+      setStaleSince(res.stale ? res.savedAt : null);
       // Sort by newest first
       setAllShipments(
-        data.sort(
+        res.data.sort(
           (a: any, b: any) =>
             new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime(),
         ),
       );
 
-      if (user?.role === "admin") {
-        const userRes = await axios.get(`${API_URL}/users`, {
+      if (isAdmin) {
+        const userRes = await cachedGet<any[]>("users", `${API_URL}/users`, {
           headers: { Authorization: `Bearer ${user?.token}` },
         });
         setUsers(userRes.data);
@@ -235,6 +250,18 @@ export default function ShipmentTrackerScreen() {
     }
   };
 
+  // Calendar mode: when a day is tapped, only that day's shipments show.
+  const visibleData = useMemo(() => {
+    if (viewMode !== "calendar" || !selectedDay) return filteredData;
+    return filteredData.filter(
+      (item: any) => {
+        const d = new Date(item.shippedAt);
+        const key = `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, "0")}-${`${d.getDate()}`.padStart(2, "0")}`;
+        return key === selectedDay;
+      },
+    );
+  }, [filteredData, viewMode, selectedDay]);
+
   // Export the currently filtered list (respects search/sort too).
   const handleExport = async (format: ExportFormat) => {
     setShowExportSheet(false);
@@ -248,44 +275,55 @@ export default function ShipmentTrackerScreen() {
       items: item.totalQuantity,
       amount: item.totalAmount,
     }));
-    const periodLabel = describePeriod(timeFilter, dateRange);
+    const periodLabel = describePeriod(t, timeFilter, dateRange);
+
+    // Plain-text summary shared by "copy" and WhatsApp.
+    const summaryText = () => {
+      const totalValue = rows.reduce((a, r) => a + r.amount, 0);
+      const totalItems = rows.reduce((a, r) => a + r.items, 0);
+      return [
+        `Shipment Logs — ${periodLabel}`,
+        showUser ? "" : `For: ${user?.name}`,
+        `${rows.length} shipments · ${totalItems} items · ₹ ${totalValue}`,
+        "",
+        ...rows.map(
+          (r) =>
+            `${r.date} · ${r.ref}${showUser ? ` · ${r.user}` : ""} · ${r.status} · ${r.items} items · ₹ ${r.amount}`,
+        ),
+      ].join("\n");
+    };
 
     try {
       if (format === "pdf") {
         const ok = await sharePdf(
           buildStatementHtml({ rows, periodLabel, showUser, ownerName: user?.name }),
-          "Share shipment statement",
+          t("export.shareShipmentStatement"),
         );
         if (!ok) throw new Error("unavailable");
       } else if (format === "csv") {
         const ok = await copyText(statementToCsv(rows, showUser));
         showToast(
           ok
-            ? { message: "CSV copied to clipboard — paste into any spreadsheet.", kind: "success" }
-            : { message: "Copy failed.", kind: "error" },
+            ? { message: t("export.csvCopied"), kind: "success" }
+            : { message: t("common.copyFailed"), kind: "error" },
         );
-      } else {
-        const totalValue = rows.reduce((a, r) => a + r.amount, 0);
-        const totalItems = rows.reduce((a, r) => a + r.items, 0);
-        const text = [
-          `Shipment Logs — ${periodLabel}`,
-          showUser ? "" : `For: ${user?.name}`,
-          `${rows.length} shipments · ${totalItems} items · ₹ ${totalValue}`,
-          "",
-          ...rows.map(
-            (r) =>
-              `${r.date} · ${r.ref}${showUser ? ` · ${r.user}` : ""} · ${r.status} · ${r.items} items · ₹ ${r.amount}`,
-          ),
-        ].join("\n");
-        const ok = await copyText(text);
+      } else if (format === "whatsapp") {
+        const ok = await shareTextToWhatsApp(summaryText());
         showToast(
           ok
-            ? { message: "Summary copied to clipboard.", kind: "success" }
-            : { message: "Copy failed.", kind: "error" },
+            ? { message: t("export.whatsappOpening"), kind: "success" }
+            : { message: t("export.whatsappUnavailable"), kind: "error" },
+        );
+      } else {
+        const ok = await copyText(summaryText());
+        showToast(
+          ok
+            ? { message: t("export.summaryCopied"), kind: "success" }
+            : { message: t("common.copyFailed"), kind: "error" },
         );
       }
     } catch (error) {
-      showToast({ message: "Export failed. Try again.", kind: "error" });
+      showToast({ message: t("export.failed"), kind: "error" });
     }
   };
 
@@ -321,11 +359,11 @@ export default function ShipmentTrackerScreen() {
 
               <View style={{ flex: 1 }}>
                 <Text style={styles.shipmentId}>
-                  Shipment #{item._id.slice(-4).toUpperCase()}
+                  {t("detail.shipmentHeading", { id: item._id.slice(-4).toUpperCase() })}
                 </Text>
                 {user?.role === "admin" && (
                   <Text style={styles.senderName}>
-                    {item.sender?.name || "User"}
+                    {item.sender?.name || t("detail.user")}
                   </Text>
                 )}
                 <Text style={styles.dateText}>
@@ -384,11 +422,11 @@ export default function ShipmentTrackerScreen() {
 
           <View style={styles.statsRow}>
             <View>
-              <Text style={styles.statLabel}>ITEMS</Text>
+              <Text style={styles.statLabel}>{t("tracker.items")}</Text>
               <Text style={styles.statValue}>{item.totalQuantity}</Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.statLabel}>VALUE</Text>
+              <Text style={styles.statLabel}>{t("tracker.value")}</Text>
               <Text style={[styles.statValue, { color: palette.accent }]}>
                 ₹ {item.totalAmount}
               </Text>
@@ -405,11 +443,25 @@ export default function ShipmentTrackerScreen() {
         {/* Header */}
         <View style={styles.headerPad}>
           <ScreenHeader
-            title="Shipment Logs"
-            subtitle="HISTORY & TRACKING"
+            title={t("tracker.logsTitle")}
+            subtitle={t("tracker.historyTracking")}
             onBack={() => router.back()}
             right={
               <View style={styles.headerActions}>
+                <PressableScale
+                  hapticFeedback
+                  onPress={() => {
+                    setSelectedDay(null);
+                    setViewMode(viewMode === "list" ? "calendar" : "list");
+                  }}
+                  style={styles.calendarBtn}
+                >
+                  <Feather
+                    name={viewMode === "list" ? "grid" : "list"}
+                    size={17}
+                    color={viewMode === "calendar" ? palette.primaryBright : palette.textTertiary}
+                  />
+                </PressableScale>
                 <PressableScale
                   hapticFeedback
                   onPress={() => setShowDateSheet(true)}
@@ -444,6 +496,12 @@ export default function ShipmentTrackerScreen() {
           />
         </View>
 
+        {staleSince !== null && (
+          <View style={styles.bannerWrap}>
+            <OfflineBanner savedAt={staleSince} />
+          </View>
+        )}
+
         {/* --- FILTERS SECTION --- */}
         <View style={styles.filtersWrap}>
           {/* 0. Search Bar */}
@@ -452,7 +510,7 @@ export default function ShipmentTrackerScreen() {
               <Feather name="search" size={15} color={palette.textTertiary} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search ID, user or status..."
+                placeholder={t("tracker.searchPlaceholder")}
                 placeholderTextColor={palette.textTertiary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -473,7 +531,7 @@ export default function ShipmentTrackerScreen() {
           {/* 1. Status Tabs (Pills) */}
           <StaggerItem index={1}>
             <View style={styles.pillRow}>
-              {["All", "Pending", "Received"].map((status) => {
+              {(["All", "Pending", "Received"] as const).map((status) => {
                 const active = statusFilter === status;
                 return (
                   <PressableScale
@@ -488,7 +546,11 @@ export default function ShipmentTrackerScreen() {
                         active && styles.pillTextActive,
                       ]}
                     >
-                      {status}
+                      {status === "All"
+                        ? t("common.all")
+                        : status === "Pending"
+                          ? t("tracker.pending")
+                          : t("tracker.received")}
                     </Text>
                   </PressableScale>
                 );
@@ -499,7 +561,7 @@ export default function ShipmentTrackerScreen() {
           {/* 2. Time Filters (Text Links) */}
           <StaggerItem index={2}>
             <View style={styles.timeRow}>
-              {["week", "month", "year", "all"].map((tf) => {
+              {(["week", "month", "year", "all"] as const).map((tf) => {
                 const active = timeFilter === tf;
                 return (
                   <PressableScale
@@ -509,7 +571,15 @@ export default function ShipmentTrackerScreen() {
                     style={styles.timeBtn}
                   >
                     <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                      {tf}
+                      {t(
+                        tf === "week"
+                          ? "tracker.week"
+                          : tf === "month"
+                            ? "tracker.month"
+                            : tf === "year"
+                              ? "tracker.year"
+                              : "tracker.all",
+                      )}
                     </Text>
                     {active && <View style={styles.timeUnderline} />}
                   </PressableScale>
@@ -556,7 +626,7 @@ export default function ShipmentTrackerScreen() {
                       selectedUser === "all" && styles.userChipTextActive,
                     ]}
                   >
-                    All Users
+                    {t("tracker.allUsers")}
                   </Text>
                 </PressableScale>
                 {users.map((u) => {
@@ -588,7 +658,7 @@ export default function ShipmentTrackerScreen() {
             <View style={styles.dayBanner}>
               <Feather name="calendar" size={13} color={palette.primaryBright} />
               <Text style={styles.dayBannerText}>
-                Showing {prettyRange(dateRange)}
+                {t("tracker.showingRange", { range: prettyRange(dateRange) })}
               </Text>
               <PressableScale
                 hapticFeedback
@@ -604,6 +674,17 @@ export default function ShipmentTrackerScreen() {
           )}
         </View>
 
+        {/* --- CALENDAR HEATMAP VIEW --- */}
+        {viewMode === "calendar" && !loading && (
+          <View style={styles.calendarWrap}>
+            <ShipmentCalendar
+              shipments={filteredData}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+            />
+          </View>
+        )}
+
         {/* --- LIST --- */}
         {loading ? (
           <View style={styles.skeletonWrap}>
@@ -613,7 +694,7 @@ export default function ShipmentTrackerScreen() {
           </View>
         ) : (
           <FlatList
-            data={filteredData}
+            data={visibleData}
             keyExtractor={(item: any) => item._id}
             renderItem={renderItem}
             contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 50 }}
@@ -621,8 +702,8 @@ export default function ShipmentTrackerScreen() {
             ListEmptyComponent={
               <EmptyState
                 icon="inbox"
-                title="No logs found"
-                message="No shipments match these filters."
+                title={t("tracker.noLogs")}
+                message={t("tracker.noLogsMessage")}
               />
             }
           />
@@ -633,6 +714,7 @@ export default function ShipmentTrackerScreen() {
       <SortSheet
         visible={showSortSheet}
         active={sortMode}
+        t={t}
         onClose={() => setShowSortSheet(false)}
         onSelect={(mode) => {
           setSortMode(mode);
@@ -644,8 +726,8 @@ export default function ShipmentTrackerScreen() {
       <ExportSheet
         visible={showExportSheet}
         onClose={() => setShowExportSheet(false)}
-        title="Export Shipment Logs"
-        subtitle={`${filteredData.length} shipments · ${describePeriod(timeFilter, dateRange)}`}
+        title={t("tracker.exportTitle")}
+        subtitle={`${t("tracker.shipmentCount", { count: filteredData.length })} · ${describePeriod(t, timeFilter, dateRange)}`}
         onFormat={handleExport}
         disabled={filteredData.length === 0}
       />
@@ -657,11 +739,13 @@ export default function ShipmentTrackerScreen() {
 function SortSheet({
   visible,
   active,
+  t,
   onClose,
   onSelect,
 }: {
   visible: boolean;
   active: SortMode;
+  t: (key: TranslationKey) => string;
   onClose: () => void;
   onSelect: (mode: SortMode) => void;
 }) {
@@ -679,7 +763,7 @@ function SortSheet({
         <View style={styles.sortSheetBody}>
           <View style={styles.sheetNotch} />
           <View style={styles.sortHeaderRow}>
-            <Text style={styles.sortTitle}>Sort by</Text>
+            <Text style={styles.sortTitle}>{t("tracker.sortBy")}</Text>
             <PressableScale hapticFeedback onPress={onClose} style={styles.sortCloseBtn}>
               <Feather name="x" size={15} color={palette.textSecondary} />
             </PressableScale>
@@ -698,7 +782,7 @@ function SortSheet({
                     {isActive && <View style={styles.sortRadioDot} />}
                   </View>
                   <Text style={[styles.sortLabel, isActive && styles.sortLabelActive]}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </Text>
                   {isActive && (
                     <Feather name="check" size={15} color={palette.primaryBright} />
@@ -913,6 +997,11 @@ const styles = StyleSheet.create({
   },
   dayBannerClear: { padding: 2 },
   skeletonWrap: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  bannerWrap: { paddingHorizontal: spacing.lg, marginBottom: spacing.md },
+  calendarWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
   card: {
     backgroundColor: palette.surfaceElevated,
     borderColor: palette.border,

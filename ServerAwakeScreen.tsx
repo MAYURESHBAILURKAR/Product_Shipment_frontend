@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { palette, radius, spacing } from "./src/theme/tokens";
+import { useLanguage } from "./src/i18n/LanguageProvider";
 import { PrimaryButton } from "./src/components/ui/PrimaryButton";
 import { StaggerItem } from "./src/components/ui/StaggerItem";
 
@@ -60,7 +61,8 @@ export default function ServerAwakeScreen({
 }: {
   onServerReady: () => void;
 }) {
-  const [status, setStatus] = useState("Connecting to server...");
+  const { t } = useLanguage();
+  const [status, setStatus] = useState(t("connect.connecting"));
   const [progress, setProgress] = useState(10);
   const [retries, setRetries] = useState(0);
 
@@ -71,7 +73,7 @@ export default function ServerAwakeScreen({
   // --- Ping/retry logic preserved exactly ---
   const checkServer = async () => {
     try {
-      setStatus("Waking up server (this may take a minute)...");
+      setStatus(t("connect.waking"));
 
       const interval = setInterval(() => {
         setProgress((prev) => (prev < 90 ? prev + 5 : prev));
@@ -81,12 +83,12 @@ export default function ServerAwakeScreen({
 
       clearInterval(interval);
       setProgress(100);
-      setStatus("Connected! Launching app...");
+      setStatus(t("connect.connected"));
 
       setTimeout(onServerReady, 500);
     } catch (error) {
       console.error("Server Wake Error:", error);
-      setStatus("Server is taking too long or is offline.");
+      setStatus(t("connect.slow"));
       setRetries((r) => r + 1);
     }
   };
@@ -100,7 +102,7 @@ export default function ServerAwakeScreen({
 
         <StaggerItem index={1}>
           <View style={styles.statusText}>
-            <Text style={styles.heading}>Establishing Connection</Text>
+            <Text style={styles.heading}>{t("connect.establishing")}</Text>
             <Text style={styles.status}>{status}</Text>
           </View>
         </StaggerItem>
@@ -115,7 +117,7 @@ export default function ServerAwakeScreen({
         {retries > 0 && (
           <StaggerItem index={3} style={styles.retryWrap}>
             <PrimaryButton
-              label="Retry Connection"
+              label={t("connect.retry")}
               icon="refresh-cw"
               variant="ghost"
               onPress={() => {
