@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import {
+  FastInput,
   GlassCard,
   PressableScale,
   PrimaryButton,
@@ -20,7 +21,6 @@ import {
   useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
-import { Input } from "tamagui";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { getErrorMessage } from "../src/utils/errors";
@@ -36,13 +36,15 @@ export default function LoginScreen() {
   const { showToast } = useToast();
   const { t } = useLanguage();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Text lives in a ref (FastInput pattern): typing never re-renders the
+  // screen; the login handler reads the ref directly.
+  const form = useRef({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // --- Login logic preserved exactly ---
   const handleLogin = async () => {
+    const { email, password } = form.current;
     if (!email || !password) {
       showToast({ message: t("auth.fillAllFields"), kind: "error" });
       return;
@@ -91,10 +93,10 @@ export default function LoginScreen() {
                 <Text style={styles.label}>{t("auth.email")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="mail" size={17} color={palette.textTertiary} />
-                  <Input
+                  <FastInput
                     flex={1}
-                    value={email}
-                    onChangeText={setEmail}
+                    value=""
+                    onChangeText={(text) => (form.current.email = text)}
                     placeholder="admin@nexus-supply.com"
                     placeholderTextColor="$gray9"
                     backgroundColor="transparent"
@@ -111,10 +113,10 @@ export default function LoginScreen() {
                 <Text style={styles.label}>{t("auth.password")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="lock" size={17} color={palette.textTertiary} />
-                  <Input
+                  <FastInput
                     flex={1}
-                    value={password}
-                    onChangeText={setPassword}
+                    value=""
+                    onChangeText={(text) => (form.current.password = text)}
                     secureTextEntry={!showPassword}
                     placeholder="••••••••••••"
                     placeholderTextColor="$gray9"

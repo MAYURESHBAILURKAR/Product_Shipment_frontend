@@ -2,7 +2,7 @@ import { AppVersionDisplay } from "@/components/AppVersionDisplay";
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useRouter } from "expo-router";
-import React, { ComponentProps, useEffect, useState } from "react";
+import React, { ComponentProps, useEffect, useRef, useState } from "react";
 import {
   Linking,
   ScrollView,
@@ -13,13 +13,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Avatar as TAvatar,
-  Input,
   Sheet,
   Switch,
   Text as TText,
 } from "tamagui";
 import {
   AppDialog,
+  FastInput,
   PressableScale,
   PrimaryButton,
   RupeeIcon,
@@ -55,11 +55,26 @@ export default function ProfileScreen() {
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [languageSheet, setLanguageSheet] = useState(false);
 
-  // Edit State
-  const [name, setName] = useState<any>(user?.name || "");
-  const [email, setEmail] = useState<any>(user?.email || "");
-  const [mobile, setMobile] = useState<any>(user?.mobile || "");
-  const [password, setPassword] = useState("");
+  // Edit State — text in a ref (FastInput pattern); typing never re-renders
+  // this screen. Seeded when the sheet opens.
+  const form = useRef({
+    name: (user?.name as string) || "",
+    email: (user?.email as string) || "",
+    mobile: (user?.mobile as string) || "",
+    password: "",
+  });
+  const [formSeed, setFormSeed] = useState({
+    name: (user?.name as string) || "",
+    email: (user?.email as string) || "",
+    mobile: (user?.mobile as string) || "",
+    password: "",
+  });
+
+  // Bumped on every sheet open: remounts the inputs so half-typed text
+  // from a previous open never leaks into the next one (the Sheet stays
+  // mounted when closed, so FastInput's internal text would otherwise
+  // survive a reopen that re-seeds the same values).
+  const [sheetSession, setSheetSession] = useState(0);
 
   // Settings State
   const [notifications, setNotifications] = useState(true);
@@ -83,8 +98,24 @@ export default function ProfileScreen() {
   useDismissOnBack(openSheet, () => setOpenSheet(false));
   useDismissOnBack(languageSheet, () => setLanguageSheet(false));
 
-  // --- Update logic preserved exactly ---
+  // Re-seed the edit sheet each time it opens (it stays mounted).
+  useEffect(() => {
+    if (openSheet) {
+      const seed = {
+        name: (user?.name as string) || "",
+        email: (user?.email as string) || "",
+        mobile: (user?.mobile as string) || "",
+        password: "",
+      };
+      form.current = { ...seed };
+      setFormSeed(seed);
+      setSheetSession((c) => c + 1);
+    }
+  }, [openSheet]);
+
+  // --- Update logic preserved exactly (state → ref reads) ---
   const handleUpdate = async () => {
+    const { name, email, mobile, password } = form.current;
     setLoading(true);
     try {
       await axios.put(
@@ -315,18 +346,20 @@ export default function ProfileScreen() {
           </TText>
 
           <View style={{ gap: spacing.md }}>
-            <Input
-              value={name}
-              onChangeText={setName}
+            <FastInput
+              key={`name-${sheetSession}`}
+              value={formSeed.name}
+              onChangeText={(text) => (form.current.name = text)}
               placeholder={t("profile.fullName")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
               borderColor={palette.border}
               placeholderTextColor="$gray10"
             />
-            <Input
-              value={email}
-              onChangeText={setEmail}
+            <FastInput
+              key={`email-${sheetSession}`}
+              value={formSeed.email}
+              onChangeText={(text) => (form.current.email = text)}
               placeholder={t("profile.emailAddress")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
@@ -334,9 +367,10 @@ export default function ProfileScreen() {
               placeholderTextColor="$gray10"
               keyboardType="email-address"
             />
-            <Input
-              value={mobile}
-              onChangeText={setMobile}
+            <FastInput
+              key={`mobile-${sheetSession}`}
+              value={formSeed.mobile}
+              onChangeText={(text) => (form.current.mobile = text)}
               placeholder={t("profile.mobileNumber")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}
@@ -344,9 +378,10 @@ export default function ProfileScreen() {
               placeholderTextColor="$gray10"
               keyboardType="phone-pad"
             />
-            <Input
-              value={password}
-              onChangeText={setPassword}
+            <FastInput
+              key={`password-${sheetSession}`}
+              value={formSeed.password}
+              onChangeText={(text) => (form.current.password = text)}
               placeholder={t("profile.newPassword")}
               backgroundColor={palette.surfaceHighest}
               color={palette.text}

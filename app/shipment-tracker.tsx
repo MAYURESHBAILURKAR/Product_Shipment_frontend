@@ -1,13 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +16,7 @@ import {
   EmptyState,
   ExportSheet,
   ExportFormat,
+  FastInput,
   OfflineBanner,
   PressableScale,
   ScreenHeader,
@@ -101,8 +101,14 @@ export default function ShipmentTrackerScreen() {
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [showDateSheet, setShowDateSheet] = useState(false);
 
-  // Search & Sort State
+  // Search & Sort State — search text debounced into state so keystroke
+  // bursts coalesce into one list refilter instead of one per key.
   const [searchQuery, setSearchQuery] = useState("");
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearchQueryDebounced = useCallback((text: string) => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearchQuery(text), 150);
+  }, []);
   const [sortMode, setSortMode] = useState<SortMode>("date-desc");
   const [showSortSheet, setShowSortSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
@@ -509,12 +515,17 @@ export default function ShipmentTrackerScreen() {
           <StaggerItem index={0}>
             <View style={styles.searchWrap}>
               <Feather name="search" size={15} color={palette.textTertiary} />
-              <TextInput
-                style={styles.searchInput}
+              <FastInput
+                flex={1}
+                backgroundColor="transparent"
+                borderWidth={0}
+                padding={0}
                 placeholder={t("tracker.searchPlaceholder")}
-                placeholderTextColor={palette.textTertiary}
+                placeholderTextColor={palette.textTertiary as any}
+                color={palette.text}
+                fontSize={13.5}
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={setSearchQueryDebounced}
                 returnKeyType="search"
               />
               {searchQuery.length > 0 && (
@@ -827,14 +838,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     height: 42,
-  },
-  searchInput: {
-    flex: 1,
-    color: palette.text,
-    fontSize: 13.5,
-    fontWeight: "500",
-    paddingVertical: 0,
-    includeFontPadding: false,
   },
   searchClear: { padding: 4 },
   sheetBackdrop: { flex: 1, justifyContent: "flex-end" },

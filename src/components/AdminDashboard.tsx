@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { ComponentProps, useCallback, useMemo, useState } from "react";
+import React, { ComponentProps, memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -13,7 +13,6 @@ import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Avatar,
-  Input,
   ScrollView,
   Sheet,
   Text as TText,
@@ -21,6 +20,7 @@ import {
 } from "tamagui";
 import {
   EmptyState,
+  FastInput,
   GradientCard,
   ListRow,
   OfflineBanner,
@@ -86,6 +86,93 @@ function AttentionChip({
   );
 }
 
+// Trend chart block, memoized: skips re-render when only the search text
+// changes (its inputs are chartMode / displayData / totals).
+type TFunc = (key: any, params?: Record<string, string | number>) => string;
+const MemoChartCard = memo(function ChartCard({
+  chartMode,
+  displayData,
+  totalWeekly,
+  totalMonthly,
+  onModeChange,
+  t,
+}: {
+  chartMode: "W" | "M";
+  displayData: { labels: string[]; datasets: { data: number[] }[] };
+  totalWeekly: number;
+  totalMonthly: number;
+  onModeChange: (m: "W" | "M") => void;
+  t: TFunc;
+}) {
+  return (
+    <View style={styles.chartCard}>
+      <View style={styles.chartHeader}>
+        <Text style={styles.chartTitle}>{t("admin.productionTrend")}</Text>
+        <View style={styles.pillRow}>
+          {(["W", "M"] as const).map((label) => (
+            <PressableScale
+              key={label}
+              hapticFeedback
+              onPress={() => onModeChange(label)}
+              style={[
+                styles.pill,
+                chartMode === label && styles.pillActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.pillText,
+                  chartMode === label && styles.pillTextActive,
+                ]}
+              >
+                {label}
+              </Text>
+            </PressableScale>
+          ))}
+        </View>
+      </View>
+      {/* Slim trend strip mirroring the active mode's series */}
+      <View style={styles.sparkStrip}>
+        <Sparkline
+          data={displayData.datasets[0].data}
+          width={SCREEN_WIDTH - 64 - spacing.lg * 2}
+          height={40}
+        />
+      </View>
+      <LineChart
+        data={displayData}
+        width={SCREEN_WIDTH - 64}
+        height={180}
+        chartConfig={{
+          backgroundColor: "transparent",
+          backgroundGradientFrom: palette.surfaceElevated,
+          backgroundGradientTo: palette.surfaceElevated,
+          decimalPlaces: 0,
+          fillShadowGradient: `${palette.primaryBright}55`,
+          fillShadowGradientOpacity: 1,
+          color: (opacity = 1) => `rgba(90, 164, 245, ${opacity})`,
+          labelColor: (opacity = 1) => `rgba(139, 148, 167, ${opacity})`,
+          propsForDots: {
+            r: "4",
+            strokeWidth: "2",
+            stroke: palette.primaryBright,
+          },
+          propsForBackgroundLines: {
+            stroke: palette.border,
+          },
+        }}
+        bezier
+        style={{ marginVertical: 8, borderRadius: 16 }}
+      />
+      <Text style={styles.chartFootnote}>
+        {chartMode === "W"
+          ? t("admin.unitsThisWeek", { count: totalWeekly.toLocaleString() })
+          : t("admin.unitsSixMonths", { count: totalMonthly.toLocaleString() })}
+      </Text>
+    </View>
+  );
+});
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -99,18 +186,32 @@ export default function AdminDashboard() {
   const [openSheet, setOpenSheet] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
 
-  // Search & Filter State
+  // Search & Filter State — raw text in a ref, debounced into state so a
+  // keystroke burst coalesces into one list refilter instead of one per key.
   const [searchQuery, setSearchQuery] = useState("");
+  const searchQueryRef = useRef("");
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearchQueryDebounced = useCallback((text: string) => {
+    searchQueryRef.current = text;
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearchQuery(text), 150);
+  }, []);
   const [filterTab, setFilterTab] = useState("All"); // All, Active, Inactive
 
-  // Form State
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [locality, setLocality] = useState("");
-  const [price, setPrice] = useState("");
+  // Form State — text lives in refs (FastInput pattern): typing never
+  // re-renders this screen (chart/lists stay idle). Seeding on open/close
+  // flows through FastInput's `value` sync.
+  const form = useRef({ name: "", email: "", password: "", mobile: "", locality: "", price: "" });
+  const [formSeed, setFormSeed] = useState({
+    name: "", email: "", password: "", mobile: "", locality: "", price: "",
+  });
   const [isActive, setIsActive] = useState(true);
+
+  // Bumped on every sheet open: remounts the form inputs so half-typed
+  // text from a previous open never leaks into the next one (the Sheet
+  // stays mounted when closed, so FastInput's internal text would
+  // otherwise survive a reopen that re-seeds the same values).
+  const [sheetSession, setSheetSession] = useState(0);
 
   const [chartData, setChartData] = useState({
     labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -203,32 +304,35 @@ export default function AdminDashboard() {
     });
   }, [users, searchQuery, filterTab]);
 
-  // --- Form handlers preserved exactly ---
+  // --- Form handlers preserved exactly (state → ref reads only) ---
   const openAddMode = () => {
     setEditingUser(null);
-    setName("");
-    setEmail("");
-    setMobile("");
-    setLocality("");
-    setPrice("");
-    setPassword("");
+    form.current = { name: "", email: "", password: "", mobile: "", locality: "", price: "" };
+    setFormSeed({ name: "", email: "", password: "", mobile: "", locality: "", price: "" });
+    setSheetSession((c) => c + 1);
     setIsActive(true);
     setOpenSheet(true);
   };
 
   const openEditMode = (item: any) => {
     setEditingUser(item);
-    setName(item.name || "");
-    setEmail(item.email || "");
-    setMobile(item.mobile || "");
-    setLocality(item.locality || "");
-    setPrice(item.priceAllotted?.toString() || "");
+    const seed = {
+      name: item.name || "",
+      email: item.email || "",
+      mobile: item.mobile || "",
+      locality: item.locality || "",
+      price: item.priceAllotted?.toString() || "",
+      password: "",
+    };
+    form.current = { ...seed };
+    setFormSeed(seed);
+    setSheetSession((c) => c + 1);
     setIsActive(item.isActive !== false);
-    setPassword("");
     setOpenSheet(true);
   };
 
   const handleSaveUser = async () => {
+    const { name, email, password, mobile, locality, price } = form.current;
     if (!name || !email || !price) {
       showToast({
         message: t("admin.requiredFields"),
@@ -471,72 +575,14 @@ export default function AdminDashboard() {
 
                 {/* 3. Production Trend Chart */}
                 <StaggerItem index={3}>
-                  <View style={styles.chartCard}>
-                    <View style={styles.chartHeader}>
-                      <Text style={styles.chartTitle}>{t("admin.productionTrend")}</Text>
-                      <View style={styles.pillRow}>
-                        {(["W", "M"] as const).map((label) => (
-                          <PressableScale
-                            key={label}
-                            hapticFeedback
-                            onPress={() => setChartMode(label)}
-                            style={[
-                              styles.pill,
-                              chartMode === label && styles.pillActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.pillText,
-                                chartMode === label && styles.pillTextActive,
-                              ]}
-                            >
-                              {label}
-                            </Text>
-                          </PressableScale>
-                        ))}
-                      </View>
-                    </View>
-                    {/* Slim trend strip mirroring the active mode's series */}
-                    <View style={styles.sparkStrip}>
-                      <Sparkline
-                        data={displayData.datasets[0].data}
-                        width={SCREEN_WIDTH - 64 - spacing.lg * 2}
-                        height={40}
-                      />
-                    </View>
-                    <LineChart
-                      data={displayData}
-                      width={SCREEN_WIDTH - 64}
-                      height={180}
-                      chartConfig={{
-                        backgroundColor: "transparent",
-                        backgroundGradientFrom: palette.surfaceElevated,
-                        backgroundGradientTo: palette.surfaceElevated,
-                        decimalPlaces: 0,
-                        fillShadowGradient: `${palette.primaryBright}55`,
-                        fillShadowGradientOpacity: 1,
-                        color: (opacity = 1) => `rgba(90, 164, 245, ${opacity})`,
-                        labelColor: (opacity = 1) =>
-                          `rgba(139, 148, 167, ${opacity})`,
-                        propsForDots: {
-                          r: "4",
-                          strokeWidth: "2",
-                          stroke: palette.primaryBright,
-                        },
-                        propsForBackgroundLines: {
-                          stroke: palette.border,
-                        },
-                      }}
-                      bezier
-                      style={{ marginVertical: 8, borderRadius: 16 }}
-                    />
-                    <Text style={styles.chartFootnote}>
-                      {chartMode === "W"
-                        ? t("admin.unitsThisWeek", { count: totalWeekly.toLocaleString() })
-                        : t("admin.unitsSixMonths", { count: totalMonthly.toLocaleString() })}
-                    </Text>
-                  </View>
+                  <MemoChartCard
+                    chartMode={chartMode}
+                    displayData={displayData}
+                    totalWeekly={totalWeekly}
+                    totalMonthly={totalMonthly}
+                    onModeChange={setChartMode}
+                    t={t}
+                  />
                 </StaggerItem>
 
                 {/* 4. User Management */}
@@ -546,7 +592,7 @@ export default function AdminDashboard() {
                   {/* Search Bar */}
                   <View style={styles.searchWrap}>
                     <Feather name="search" size={18} color={palette.textTertiary} />
-                    <Input
+                    <FastInput
                       flex={1}
                       backgroundColor="transparent"
                       borderWidth={0}
@@ -554,7 +600,7 @@ export default function AdminDashboard() {
                       placeholderTextColor="$gray10"
                       color={palette.text}
                       value={searchQuery}
-                      onChangeText={setSearchQuery}
+                      onChangeText={setSearchQueryDebounced}
                     />
                   </View>
 
@@ -636,20 +682,22 @@ export default function AdminDashboard() {
             </TText>
 
             <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }}>
-              <Input
+              <FastInput
+                key={`name-${sheetSession}`}
                 placeholder={t("admin.fullName")}
-                value={name}
-                onChangeText={setName}
+                value={formSeed.name}
+                onChangeText={(text) => (form.current.name = text)}
                 backgroundColor={palette.surfaceHighest}
                 color={palette.text}
                 borderColor={palette.border}
                 placeholderTextColor="$gray10"
                 size="$4"
               />
-              <Input
+              <FastInput
+                key={`email-${sheetSession}`}
                 placeholder={t("admin.email")}
-                value={email}
-                onChangeText={setEmail}
+                value={formSeed.email}
+                onChangeText={(text) => (form.current.email = text)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 backgroundColor={palette.surfaceHighest}
@@ -658,10 +706,11 @@ export default function AdminDashboard() {
                 placeholderTextColor="$gray10"
                 size="$4"
               />
-              <Input
+              <FastInput
+                key={`mobile-${sheetSession}`}
                 placeholder={t("admin.mobileNumber")}
-                value={mobile}
-                onChangeText={setMobile}
+                value={formSeed.mobile}
+                onChangeText={(text) => (form.current.mobile = text)}
                 keyboardType="phone-pad"
                 backgroundColor={palette.surfaceHighest}
                 color={palette.text}
@@ -669,10 +718,11 @@ export default function AdminDashboard() {
                 placeholderTextColor="$gray10"
                 size="$4"
               />
-              <Input
+              <FastInput
+                key={`locality-${sheetSession}`}
                 placeholder={t("admin.locality")}
-                value={locality}
-                onChangeText={setLocality}
+                value={formSeed.locality}
+                onChangeText={(text) => (form.current.locality = text)}
                 backgroundColor={palette.surfaceHighest}
                 color={palette.text}
                 borderColor={palette.border}
@@ -684,10 +734,11 @@ export default function AdminDashboard() {
                 <TText color={palette.textSecondary} fontSize={12} marginBottom="$1">
                   {t("admin.priceRate")}
                 </TText>
-                <Input
+                <FastInput
+                  key={`price-${sheetSession}`}
                   placeholder="1.50"
-                  value={price}
-                  onChangeText={setPrice}
+                  value={formSeed.price}
+                  onChangeText={(text) => (form.current.price = text)}
                   keyboardType="numeric"
                   backgroundColor={palette.surfaceHighest}
                   color={palette.text}
@@ -697,12 +748,13 @@ export default function AdminDashboard() {
                 />
               </YStack>
 
-              <Input
+              <FastInput
+                key={`password-${sheetSession}`}
                 placeholder={
                   editingUser ? t("profile.newPassword") : t("admin.password")
                 }
-                value={password}
-                onChangeText={setPassword}
+                value={formSeed.password}
+                onChangeText={(text) => (form.current.password = text)}
                 backgroundColor={palette.surfaceHighest}
                 color={palette.text}
                 borderColor={palette.border}

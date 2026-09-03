@@ -5,6 +5,7 @@ export type { DateRange } from "./DateRangeSheet";
 export { DateRangeSheet } from "./DateRangeSheet";
 export { EmptyState } from "./EmptyState";
 export { ExportSheet } from "./ExportSheet";
+export { FastInput } from "./FastInput";
 export type { ExportFormat } from "./ExportSheet";
 export { RupeeIcon } from "./RupeeIcon";
 export { GlassCard } from "./GlassCard";

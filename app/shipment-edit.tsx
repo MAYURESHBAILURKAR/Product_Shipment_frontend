@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Image as RNImage,
@@ -10,8 +10,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Input } from "tamagui";
 import {
+  FastInput,
   PressableScale,
   PrimaryButton,
   ScreenHeader,
@@ -39,6 +39,12 @@ export default function EditShipmentScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced search state: keystroke bursts coalesce into one refilter.
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearchQueryDebounced = (text: string) => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearchQuery(text), 150);
+  };
 
   useEffect(() => {
     loadData();
@@ -241,7 +247,7 @@ export default function EditShipmentScreen() {
         {/* Search */}
         <View style={styles.searchWrap}>
           <Feather name="search" size={17} color={palette.textTertiary} />
-          <Input
+          <FastInput
             flex={1}
             backgroundColor="transparent"
             borderWidth={0}
@@ -249,7 +255,7 @@ export default function EditShipmentScreen() {
             placeholderTextColor="$gray10"
             color={palette.text}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={setSearchQueryDebounced}
           />
         </View>
 

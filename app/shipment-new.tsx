@@ -19,9 +19,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ViewShot from "react-native-view-shot";
-import { Input } from "tamagui";
 import {
   EmptyState,
+  FastInput,
   PressableScale,
   PrimaryButton,
   ScreenHeader,
@@ -51,6 +51,12 @@ export default function NewShipmentScreen() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced search state: keystroke bursts coalesce into one refilter.
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearchQueryDebounced = (text: string) => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearchQuery(text), 150);
+  };
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
   // Preview / share modal state
@@ -361,7 +367,7 @@ Please approve this in the Admin App.`;
         <View style={styles.searchRow}>
           <View style={styles.searchWrap}>
             <Feather name="search" size={17} color={palette.textTertiary} />
-            <Input
+            <FastInput
               flex={1}
               backgroundColor="transparent"
               borderWidth={0}
@@ -369,7 +375,7 @@ Please approve this in the Admin App.`;
               placeholderTextColor="$gray10"
               color={palette.text}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={setSearchQueryDebounced}
             />
           </View>
 

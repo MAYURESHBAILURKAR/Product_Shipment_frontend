@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -14,10 +14,10 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Input } from "tamagui";
 import {
   AppDialog,
   EmptyState,
+  FastInput,
   OfflineBanner,
   PressableScale,
   ProductFormSheet,
@@ -73,6 +73,13 @@ export default function ProductsScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced search state updates: keystroke bursts coalesce into one
+  // list refilter instead of one re-render per key.
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearchQueryDebounced = useCallback((text: string) => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearchQuery(text), 150);
+  }, []);
   const [selectedBrand, setSelectedBrand] = useState("all");
 
   // Offline resilience: shows the banner when the grid came from cache.
@@ -242,7 +249,7 @@ export default function ProductsScreen() {
           {/* Search Bar */}
           <View style={styles.searchWrap}>
             <Feather name="search" size={17} color={palette.textTertiary} />
-            <Input
+            <FastInput
               flex={1}
               backgroundColor="transparent"
               borderWidth={0}
@@ -250,7 +257,7 @@ export default function ProductsScreen() {
               placeholderTextColor="$gray10"
               color={palette.text}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={setSearchQueryDebounced}
             />
           </View>
 

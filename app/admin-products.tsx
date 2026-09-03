@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   FlatList,
   Image as RNImage,
@@ -10,9 +10,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Input } from "tamagui";
 import {
   EmptyState,
+  FastInput,
   ScreenHeader,
   SkeletonListRow,
   StaggerItem,
@@ -31,6 +31,12 @@ export default function AdminProductsScreen() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  // Debounced search state: keystroke bursts coalesce into one refilter.
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setSearchDebounced = useCallback((text: string) => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => setSearch(text), 150);
+  }, []);
 
   // --- Fetch logic preserved exactly ---
   const fetchProducts = async () => {
@@ -109,11 +115,11 @@ export default function AdminProductsScreen() {
         {/* Search */}
         <View style={styles.searchWrap}>
           <Feather name="search" size={16} color={palette.textTertiary} />
-          <Input
+          <FastInput
             flex={1}
             placeholder={t("adminScreens.searchPlaceholder")}
             value={search}
-            onChangeText={setSearch}
+            onChangeText={setSearchDebounced}
             backgroundColor="transparent"
             borderWidth={0}
             color={palette.text}

@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image as RNImage,
   Modal,
@@ -17,12 +17,12 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Input, Sheet, Text as TText } from "tamagui";
+import { Sheet, Text as TText } from "tamagui";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage, type TranslationKey } from "../../i18n/LanguageProvider";
 import { getErrorMessage } from "../../utils/errors";
-import { AppDialog, PressableScale, PrimaryButton, useDismissOnBack, useToast } from "./index";
+import { AppDialog, FastInput, PressableScale, PrimaryButton, useDismissOnBack, useToast } from "./index";
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/products`;
 
@@ -46,8 +46,14 @@ export function ProductFormSheet({
   const { showToast } = useToast();
   const { t } = useLanguage();
 
-  const [name, setName] = useState(product?.name || "");
-  const [brand, setBrand] = useState(product?.brand || "");
+  // Text fields live in a ref (FastInput pattern): typing never re-renders
+  // this sheet. Seeding happens via the seed state below, which FastInput
+  // applies while the fields are not focused.
+  const form = useRef({ name: product?.name || "", brand: product?.brand || "" });
+  const [formSeed, setFormSeed] = useState({
+    name: product?.name || "",
+    brand: product?.brand || "",
+  });
   const [image, setImage] = useState<any>(
     product ? { uri: product.photoUrl } : null,
   );
@@ -55,11 +61,22 @@ export function ProductFormSheet({
   const [confirmUpdate, setConfirmUpdate] = useState(false);
   const [showImageSource, setShowImageSource] = useState(false);
 
+  // Bumped on every sheet open: remounts the inputs so a half-typed form
+  // from a previous open never leaks into the next one (the Sheet stays
+  // mounted when closed, so FastInput's internal text would otherwise
+  // survive a reopen that re-seeds the same values).
+  const [sheetSession, setSheetSession] = useState(0);
+
   // Re-seed the form each time the sheet opens (it stays mounted).
   useEffect(() => {
     if (open) {
-      setName(product?.name || "");
-      setBrand(product?.brand || "");
+      const seed = {
+        name: product?.name || "",
+        brand: product?.brand || "",
+      };
+      form.current = { ...seed };
+      setFormSeed(seed);
+      setSheetSession((c) => c + 1);
       setImage(product ? { uri: product.photoUrl } : null);
     }
   }, [open, product]);
@@ -92,6 +109,7 @@ export function ProductFormSheet({
   };
 
   const handleSave = async () => {
+    const { name, brand } = form.current;
     if (!name || !brand) {
       showToast({ message: t("products.nameBrandRequired"), kind: "error" });
       return;
@@ -106,6 +124,7 @@ export function ProductFormSheet({
   };
 
   const performSave = async () => {
+    const { name, brand } = form.current;
     setUploading(true);
     const formData = new FormData();
     formData.append("name", name);
@@ -180,19 +199,21 @@ export function ProductFormSheet({
           </PressableScale>
         </View>
 
-        <Input
+        <FastInput
+          key={`name-${sheetSession}`}
           placeholder={t("products.productName")}
-          value={name}
-          onChangeText={setName}
+          value={formSeed.name}
+          onChangeText={(text) => (form.current.name = text)}
           backgroundColor={palette.surfaceHighest}
           color={palette.text}
           placeholderTextColor="$gray10"
           borderColor={palette.border}
         />
-        <Input
+        <FastInput
+          key={`brand-${sheetSession}`}
           placeholder={t("products.brandLabel")}
-          value={brand}
-          onChangeText={setBrand}
+          value={formSeed.brand}
+          onChangeText={(text) => (form.current.brand = text)}
           backgroundColor={palette.surfaceHighest}
           color={palette.text}
           placeholderTextColor="$gray10"

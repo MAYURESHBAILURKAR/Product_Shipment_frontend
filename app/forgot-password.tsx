@@ -3,7 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import {
+  FastInput,
   GlassCard,
   PressableScale,
   PrimaryButton,
@@ -19,7 +20,6 @@ import {
   useToast,
 } from "../src/components/ui";
 import { palette, radius, spacing } from "../src/theme/tokens";
-import { Input } from "tamagui";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { getErrorMessage } from "../src/utils/errors";
 
@@ -31,12 +31,13 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const [email, setEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  // Text lives in a ref (FastInput pattern): typing never re-renders the screen.
+  const form = useRef({ email: "", newPassword: "" });
   const [loading, setLoading] = useState(false);
 
   // --- Reset logic preserved exactly ---
   const handleReset = async () => {
+    const { email, newPassword } = form.current;
     if (!email || !newPassword) {
       showToast({ message: t("auth.fillAllFields"), kind: "error" });
       return;
@@ -90,10 +91,10 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.label}>{t("auth.email")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="mail" size={17} color={palette.textTertiary} />
-                  <Input
+                  <FastInput
                     flex={1}
-                    value={email}
-                    onChangeText={setEmail}
+                    value=""
+                    onChangeText={(text) => (form.current.email = text)}
                     placeholder="admin@nexus-supply.com"
                     placeholderTextColor="$gray9"
                     backgroundColor="transparent"
@@ -109,10 +110,10 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.label}>{t("auth.newPassword")}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="lock" size={17} color={palette.textTertiary} />
-                  <Input
+                  <FastInput
                     flex={1}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
+                    value=""
+                    onChangeText={(text) => (form.current.newPassword = text)}
                     secureTextEntry
                     placeholder="••••••••••••"
                     placeholderTextColor="$gray9"
