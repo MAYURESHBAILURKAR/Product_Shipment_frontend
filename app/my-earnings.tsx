@@ -26,6 +26,7 @@ import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { getErrorMessage } from "../src/utils/errors";
 import { cachedGet } from "../src/utils/apiCache";
+import { isSharePriceEnabled } from "../src/utils/shareSettings";
 import {
   buildEarningsHtml,
   copyText,
@@ -142,19 +143,28 @@ export default function MyEarningsScreen() {
       showToast({ message: t("earnings.nothingToExport"), kind: "error" });
       return;
     }
-    // Plain-text summary shared by "copy" and WhatsApp.
+    // Plain-text summary shared by "copy" and WhatsApp. ₹ amounts follow the
+    // profile "Show Price in Share" setting (PDF/CSV exports keep them).
+    const showPrice = isSharePriceEnabled();
     const summaryText = () => {
       const total = money(earnings.totalValue);
-      return [
+      const lines = [
         `My Earnings — ${user?.name}`,
-        `Rate: ${money(rate)}/unit`,
-        `Total: ${total} (${earnings.totalUnits} units)`,
-        `Received: ${money(earnings.receivedValue)} · Pending: ${money(earnings.pendingValue)}`,
+        ...(showPrice
+          ? [
+              `Rate: ${money(rate)}/unit`,
+              `Total: ${total} (${earnings.totalUnits} units)`,
+              `Received: ${money(earnings.receivedValue)} · Pending: ${money(earnings.pendingValue)}`,
+            ]
+          : [`Total: ${earnings.totalUnits} units`]),
         "",
-        ...earnings.months.map(
-          (m) => `${m.label}: ${m.shipments} shipments, ${m.units} units, ${money(m.amount)}`,
+        ...earnings.months.map((m) =>
+          showPrice
+            ? `${m.label}: ${m.shipments} shipments, ${m.units} units, ${money(m.amount)}`
+            : `${m.label}: ${m.shipments} shipments, ${m.units} units`,
         ),
-      ].join("\n");
+      ];
+      return lines.join("\n");
     };
     try {
       if (format === "pdf") {

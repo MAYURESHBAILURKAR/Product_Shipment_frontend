@@ -255,6 +255,7 @@ export default function ShipmentHistoryScreen() {
               : ""
           }
           ownerName={user?.name}
+          shippedAt={shareTarget?.shippedAt}
           items={(shareTarget?.items || []).map((item: any) => ({
             name: item.product?.name || "Unknown",
             brand: item.product?.brand,

@@ -22,6 +22,7 @@ import ViewShot from "react-native-view-shot";
 import {
   EmptyState,
   FastInput,
+  formatShippedAt,
   PressableScale,
   PrimaryButton,
   ScreenHeader,
@@ -33,6 +34,7 @@ import { palette, radius, spacing } from "../src/theme/tokens";
 import { useAuth } from "../src/context/AuthContext";
 import { useLanguage } from "../src/i18n/LanguageProvider";
 import { getErrorMessage } from "../src/utils/errors";
+import { isSharePriceEnabled } from "../src/utils/shareSettings";
 
 // ⚠️ REPLACE WITH YOUR IP
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -64,6 +66,15 @@ export default function NewShipmentScreen() {
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
+  // Price visibility for the shared receipt; re-synced on each preview open
+  // so a mid-session toggle in profile settings reflects immediately.
+  const [showPrice, setShowPrice] = useState(isSharePriceEnabled());
+  // Timestamp of the created shipment (server's shippedAt), stamped on share.
+  const [shippedAt, setShippedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (previewVisible) setShowPrice(isSharePriceEnabled());
+  }, [previewVisible]);
 
   useEffect(() => {
     fetchProducts();
@@ -160,15 +171,22 @@ export default function NewShipmentScreen() {
   const buildTextMessage = () => {
     const itemsList = cartItems
       .map(({ product, qty, value }) => {
-        return `• ${product?.brand || "Unknown"} - ${product?.name || "Unknown"}: ${qty} pcs (₹${value})`;
+        return `• ${product?.brand || "Unknown"} - ${product?.name || "Unknown"}: ${qty} pcs${showPrice ? ` (₹${value})` : ""}`;
       })
       .join("\n");
 
+    const summaryLines = [
+      `👤 *Owner:* ${user?.name}`,
+      `📊 *Total Items:* ${totalItems}`,
+      `🗓 *${t("newShipment.sentAt")}${formatShippedAt(shippedAt ?? new Date().toISOString())}*`,
+    ];
+    if (showPrice) {
+      summaryLines.push(`💰 *Total Value:* ₹${estimatedPayout.toFixed(2)}`);
+    }
+
     return `📦 *New Shipment Sent!*
 
-👤 *Owner:* ${user?.name}
-📊 *Total Items:* ${totalItems}
-💰 *Total Value:* ₹${estimatedPayout.toFixed(2)}
+${summaryLines.join("\n")}
 
 📝 *Shipment Details:*
 ${itemsList}
@@ -190,13 +208,15 @@ Please approve this in the Admin App.`;
     }));
 
     try {
-      await axios.post(
+      const { data: created } = await axios.post(
         `${API_URL}/shipments`,
         { items: itemsPayload },
         { headers: { Authorization: `Bearer ${user?.token}` } },
       );
 
       setSubmitting(false);
+      // Stamp the share receipt with the server's shippedAt (fallback: now).
+      setShippedAt(created?.shippedAt ?? new Date().toISOString());
       // Instead of a plain text alert, open the visual receipt/preview
       setPreviewVisible(true);
     } catch (error: any) {
@@ -488,6 +508,10 @@ Please approve this in the Admin App.`;
               <View style={styles.receiptHeader}>
                 <Text style={styles.receiptTitle}>{t("newShipment.receiptTitle")}</Text>
                 <Text style={styles.receiptSub}>{t("newShipment.owner")}{user?.name}</Text>
+                <Text style={styles.receiptDate}>
+                  {t("newShipment.sentAt")}
+                  {formatShippedAt(shippedAt ?? new Date().toISOString())}
+                </Text>
               </View>
 
               {cartItems.map(({ product, qty, value }) => (
@@ -503,7 +527,8 @@ Please approve this in the Admin App.`;
                       {product.brand} - {product.name}
                     </Text>
                     <Text style={styles.receiptProductMeta}>
-                      {qty} {t("newShipment.pcs")} · ₹{value}
+                      {qty} {t("newShipment.pcs")}
+                      {showPrice ? ` · ₹${value}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -513,9 +538,11 @@ Please approve this in the Admin App.`;
                 <Text style={styles.receiptTotalLabel}>
                   {t("newShipment.total")}{totalItems} {t("newShipment.pcs")}
                 </Text>
-                <Text style={styles.receiptTotalValue}>
-                  ₹ {estimatedPayout.toFixed(2)}
-                </Text>
+                {showPrice ? (
+                  <Text style={styles.receiptTotalValue}>
+                    ₹ {estimatedPayout.toFixed(2)}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </ViewShot>
@@ -779,6 +806,11 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 12,
     marginTop: 3,
+  },
+  receiptDate: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
   },
   receiptRow: {
     flexDirection: "row",

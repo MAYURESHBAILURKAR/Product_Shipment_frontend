@@ -32,6 +32,10 @@ import { palette, radius, spacing } from "../../src/theme/tokens";
 import { useAuth } from "../../src/context/AuthContext";
 import { isHapticsEnabled, setHapticsEnabled } from "../../src/utils/haptics";
 import {
+  isSharePriceEnabled,
+  setSharePriceEnabled,
+} from "../../src/utils/shareSettings";
+import {
   isPushEnabled,
   registerForPush,
   setPushEnabled,
@@ -79,10 +83,12 @@ export default function ProfileScreen() {
   // Settings State
   const [notifications, setNotifications] = useState(true);
   const [hapticsOn, setHapticsOn] = useState(true);
+  const [priceOnShare, setPriceOnShare] = useState(false);
 
   useEffect(() => {
     setHapticsOn(isHapticsEnabled());
     setNotifications(isPushEnabled());
+    setPriceOnShare(isSharePriceEnabled());
   }, []);
 
   // Push toggle: on → register this device immediately; off → skip
@@ -293,6 +299,36 @@ export default function ProfileScreen() {
                     setHapticsEnabled(next);
                   }}
                   backgroundColor={hapticsOn ? palette.primary : palette.border}
+                >
+                  <Switch.Thumb backgroundColor="#FFFFFF" />
+                </Switch>
+              </View>
+              <View style={styles.groupDivider} />
+              <View style={styles.prefRow}>
+                <View style={[styles.menuLeft, styles.menuLeftGrow]}>
+                  <View style={styles.menuIcon}>
+                    <RupeeIcon
+                      size={17}
+                      color={palette.primaryBright}
+                    />
+                  </View>
+                  <View style={styles.prefTextCol}>
+                    <Text style={styles.menuLabel}>
+                      {t("profile.sharePriceLabel")}
+                    </Text>
+                    <Text style={styles.prefDesc}>
+                      {t("profile.sharePriceDesc")}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  size="$2"
+                  checked={priceOnShare}
+                  onCheckedChange={(next: boolean) => {
+                    setPriceOnShare(next);
+                    setSharePriceEnabled(next);
+                  }}
+                  backgroundColor={priceOnShare ? palette.primary : palette.border}
                 >
                   <Switch.Thumb backgroundColor="#FFFFFF" />
                 </Switch>
@@ -597,6 +633,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.sm,
+  },
+  menuLeftGrow: { flex: 1 },
+  prefTextCol: { flex: 1, alignItems: "flex-start" },
+  prefDesc: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
   },
   langRow: {
     flexDirection: "row",

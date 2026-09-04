@@ -400,6 +400,7 @@ export default function ShipmentDetailsScreen() {
         onClose={() => setShareOpen(false)}
         heading={t("detail.shipmentHeading", { id: typeof id === "string" ? id.slice(-4).toUpperCase() : "" })}
         ownerName={shipment.sender?.name || user?.name}
+        shippedAt={shipment?.shippedAt}
         items={shipment.items.map((item: any) => ({
           name: item.product?.name || t("detail.unknownItem"),
           brand: item.product?.brand || t("common.na"),

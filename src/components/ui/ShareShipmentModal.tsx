@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image as RNImage,
   Modal,
@@ -13,6 +13,9 @@ import {
 import ViewShot from "react-native-view-shot";
 import { palette, radius, spacing } from "../../theme/tokens";
 import { useLanguage } from "../../i18n/LanguageProvider";
+import {
+  isSharePriceEnabled,
+} from "../../utils/shareSettings";
 import { PressableScale, PrimaryButton, useToast } from "./index";
 
 export interface ShareShipmentItem {
@@ -30,10 +33,24 @@ interface ShareShipmentModalProps {
   /** Receipt title, e.g. "Shipment #A1B2" */
   heading: string;
   ownerName?: string;
+  /** ISO timestamp of the shipment; stamped on the shared receipt + text */
+  shippedAt?: string;
   items: ShareShipmentItem[];
   totalItems: number;
   totalValue: number;
 }
+
+// "04 Sep 2026, 14:35" — matches the tracker's en-GB date style.
+export const formatShippedAt = (shippedAt?: string) =>
+  shippedAt
+    ? new Date(shippedAt).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
 
 // Same share flow as the post-create screen: ViewShot receipt image via the
 // native share sheet, plus a copy-to-clipboard text summary for captions.
@@ -42,15 +59,28 @@ export function ShareShipmentModal({
   onClose,
   heading,
   ownerName,
+  shippedAt,
   items,
   totalItems,
   totalValue,
 }: ShareShipmentModalProps) {
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Price visibility follows the profile setting; re-read each open so a
+  // mid-session toggle reflects immediately.
+  const [showPrice, setShowPrice] = useState(isSharePriceEnabled());
   const viewShotRef = useRef<ViewShot>(null);
   const { showToast } = useToast();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (visible) setShowPrice(isSharePriceEnabled());
+  }, [visible]);
+
+  // "Sent: 04 Sep 2026, 14:35" — falls back to now for just-created shipments.
+  const sentLabel =
+    t("newShipment.sentAt") +
+    (formatShippedAt(shippedAt) || formatShippedAt(new Date().toISOString()));
 
   const handleShareImage = async () => {
     try {
@@ -90,15 +120,22 @@ export function ShareShipmentModal({
       const itemsList = items
         .map(
           ({ name, brand, quantity, value }) =>
-            `• ${brand || "Unknown"} - ${name}: ${quantity} pcs${value != null ? ` (₹${value})` : ""}`,
+            `• ${brand || "Unknown"} - ${name}: ${quantity} pcs${showPrice && value != null ? ` (₹${value})` : ""}`,
         )
         .join("\n");
 
+      const summaryLines = [
+        `👤 *Owner:* ${ownerName || "—"}`,
+        `📊 *Total Items:* ${totalItems}`,
+        `🗓 *${sentLabel}*`,
+      ];
+      if (showPrice) {
+        summaryLines.push(`💰 *Total Value:* ₹${totalValue.toFixed(2)}`);
+      }
+
       const message = `📦 *Shipment Sent!*
 
-👤 *Owner:* ${ownerName || "—"}
-📊 *Total Items:* ${totalItems}
-💰 *Total Value:* ₹${totalValue.toFixed(2)}
+${summaryLines.join("\n")}
 
 📝 *Shipment Details:*
 ${itemsList}`;
@@ -137,6 +174,7 @@ ${itemsList}`;
                 {ownerName ? (
                   <Text style={styles.receiptSub}>{t("newShipment.owner")}{ownerName}</Text>
                 ) : null}
+                <Text style={styles.receiptDate}>{sentLabel}</Text>
               </View>
 
               {items.map((item, i) => (
@@ -154,7 +192,7 @@ ${itemsList}`;
                     </Text>
                     <Text style={styles.receiptProductMeta}>
                       {item.quantity} {t("newShipment.pcs")}
-                      {item.value != null ? ` · ₹${item.value}` : ""}
+                      {showPrice && item.value != null ? ` · ₹${item.value}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -164,9 +202,11 @@ ${itemsList}`;
                 <Text style={styles.receiptTotalLabel}>
                   {t("newShipment.total")}{totalItems} {t("newShipment.pcs")}
                 </Text>
-                <Text style={styles.receiptTotalValue}>
-                  ₹ {totalValue.toFixed(2)}
-                </Text>
+                {showPrice ? (
+                  <Text style={styles.receiptTotalValue}>
+                    ₹ {totalValue.toFixed(2)}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </ViewShot>
@@ -242,6 +282,11 @@ const styles = StyleSheet.create({
     color: palette.textSecondary,
     fontSize: 12,
     marginTop: 3,
+  },
+  receiptDate: {
+    color: palette.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
   },
   receiptRow: {
     flexDirection: "row",

@@ -15,7 +15,7 @@ export { OfflineBanner } from "./OfflineBanner";
 export { PressableScale } from "./PressableScale";
 export { PrimaryButton } from "./PrimaryButton";
 export { ProductFormSheet } from "./ProductFormSheet";
-export { ShareShipmentModal } from "./ShareShipmentModal";
+export { ShareShipmentModal, formatShippedAt } from "./ShareShipmentModal";
 export type { ShareShipmentItem } from "./ShareShipmentModal";
 export { Screen, } from "./Screen";
 export { ScreenHeader } from "./ScreenHeader";

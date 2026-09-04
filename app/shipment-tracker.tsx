@@ -31,6 +31,7 @@ import { useLanguage } from "../src/i18n/LanguageProvider";
 import { getErrorMessage } from "../src/utils/errors";
 import type { TranslationKey } from "../src/i18n/translations";
 import { cachedGet } from "../src/utils/apiCache";
+import { isSharePriceEnabled } from "../src/utils/shareSettings";
 import {
   buildStatementHtml,
   copyText,
@@ -284,18 +285,20 @@ export default function ShipmentTrackerScreen() {
     }));
     const periodLabel = describePeriod(t, timeFilter, dateRange);
 
-    // Plain-text summary shared by "copy" and WhatsApp.
+    // Plain-text summary shared by "copy" and WhatsApp. ₹ amounts follow the
+    // profile "Show Price in Share" setting (PDF/CSV exports keep them).
+    const showPrice = isSharePriceEnabled();
     const summaryText = () => {
       const totalValue = rows.reduce((a, r) => a + r.amount, 0);
       const totalItems = rows.reduce((a, r) => a + r.items, 0);
       return [
         `Shipment Logs — ${periodLabel}`,
         showUser ? "" : `For: ${user?.name}`,
-        `${rows.length} shipments · ${totalItems} items · ₹ ${totalValue}`,
+        `${rows.length} shipments · ${totalItems} items${showPrice ? ` · ₹ ${totalValue}` : ""}`,
         "",
         ...rows.map(
           (r) =>
-            `${r.date} · ${r.ref}${showUser ? ` · ${r.user}` : ""} · ${r.status} · ${r.items} items · ₹ ${r.amount}`,
+            `${r.date} · ${r.ref}${showUser ? ` · ${r.user}` : ""} · ${r.status} · ${r.items} items${showPrice ? ` · ₹ ${r.amount}` : ""}`,
         ),
       ].join("\n");
     };

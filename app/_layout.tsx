@@ -20,6 +20,7 @@ import config from "../tamagui.config";
 import { palette } from "../src/theme/tokens";
 import { ToastProvider } from "../src/components/ui";
 import { hydrateHapticsSetting } from "../src/utils/haptics";
+import { hydrateSharePriceSetting } from "../src/utils/shareSettings";
 import {
   LanguageProvider,
   hydrateLanguageSetting,
@@ -150,6 +151,8 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
     hydrateHapticsSetting();
+    // Share price: restore pref before share screens read it.
+    hydrateSharePriceSetting();
     // Language: restore the saved locale before screens render.
     hydrateLanguageSetting();
     // Push: restore pref + make foreground notifications show as alerts.
